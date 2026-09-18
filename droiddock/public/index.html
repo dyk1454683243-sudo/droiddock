@@ -12,7 +12,7 @@
     <main class="dock">
       <section class="workspace" aria-label="Phone display">
         <div id="screen-area" class="screen-area">
-          <canvas id="screen" tabindex="0" aria-label="Live phone screen. Click to control your phone; type while focused." hidden></canvas>
+          <canvas id="screen" tabindex="0" aria-label="Live phone screen. Type while focused. Tab moves to browser controls." hidden></canvas>
           <div id="empty" class="empty">
             <svg class="empty-icon" viewBox="0 0 48 64" fill="none" aria-hidden="true"><rect x="9" y="3" width="30" height="58" rx="6"/><path d="M20 9h8M21 55h6M18 31h12m-6-6v12"/></svg>
             <h2 id="empty-title">Your phone, within reach.</h2>
@@ -23,8 +23,8 @@
       <aside class="controls" aria-label="DroidDock controls">
         <div class="brand" title="DroidDock — powered by scrcpy"><span class="brand-mark" aria-hidden="true"><i></i></span><h1 class="sr-only">DroidDock</h1></div>
         <div class="connection">
-          <button id="connect" class="icon-button primary" type="button" title="Connect" aria-label="Connect"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v4m6-4v4M7 7h10v4a5 5 0 0 1-10 0V7Zm5 9v5"/></svg><span id="connect-label" class="sr-only">Connect</span></button>
-          <span id="state" class="state" data-state="idle" title="Disconnected">Disconnected</span>
+          <button id="connect" class="icon-button primary" type="button" title="Connect" aria-label="Connect" aria-describedby="state"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v4m6-4v4M7 7h10v4a5 5 0 0 1-10 0V7Zm5 9v5"/></svg><span id="connect-label" class="sr-only">Connect</span></button>
+          <span id="state" class="state" data-state="idle" title="Disconnected" role="status" aria-live="polite">Disconnected</span>
         </div>
         <div class="button-row" role="group" aria-label="Phone controls">
           <button class="icon-button" data-key="back" aria-label="Back" title="Back" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button>

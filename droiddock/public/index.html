@@ -42,7 +42,7 @@
           <div class="details-panel">
             <strong>DroidDock</strong><span class="powered">powered by scrcpy</span>
             <div class="session-info"><span id="device">Phone disconnected</span><span id="resolution"></span></div>
-            <form id="text-form" class="text-form"><label for="text-input">Fallback text input</label><input id="text-input" type="text" placeholder="Text to send to phone" maxlength="3000" autocomplete="off" disabled><button id="send-text" type="submit" disabled>Send</button></form>
+            <form id="text-form" class="text-form"><label for="text-input">Fallback text input</label><input id="text-input" type="text" placeholder="Text to send to phone" maxlength="3000" autocomplete="off" disabled aria-describedby="text-input-help text-byte-count"><p id="text-byte-count" class="text-byte-count">0 / 300 bytes</p><p id="text-input-help" class="text-help">Limited to 300 UTF-8 bytes per send. Fallback injection supports ASCII and some accented letters, not every Unicode character.</p><button id="send-text" type="submit" disabled>Send</button></form>
             <p id="message" class="message" role="status" aria-live="polite">Phone must be connected through ADB.</p>
           </div>
         </details>

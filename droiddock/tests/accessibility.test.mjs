@@ -80,7 +80,7 @@ function loadBrowser() {
     open: false,
     querySelector(sel) { return sel === 'summary' ? summary : null; },
     contains(node) {
-      return node === more || node === summary || node === element('text-input') || node === element('send-text') || node === element('message');
+      return node === more || node === summary || node === element('text-input') || node === element('send-text') || node === element('message') || node === element('text-byte-count') || node === element('text-input-help');
     },
   });
   function element(id) {
@@ -93,7 +93,7 @@ function loadBrowser() {
     }
     return elements.get(id);
   }
-  for (const id of ['screen', 'connect', 'connect-label', 'state', 'message', 'empty', 'empty-title', 'empty-message', 'device', 'resolution', 'text-input', 'send-text', 'text-form', 'screen-area']) element(id);
+  for (const id of ['screen', 'connect', 'connect-label', 'state', 'message', 'empty', 'empty-title', 'empty-message', 'device', 'resolution', 'text-input', 'send-text', 'text-form', 'text-byte-count', 'text-input-help', 'screen-area']) element(id);
   const sockets = [];
   class FakeWebSocket {
     static OPEN = 1;
@@ -173,6 +173,8 @@ function deliverSyntheticFrame(browser, socket) {
   return socket;
 }
 
+export { loadBrowser, startConnect, deliverSyntheticFrame };
+
 test('browser chrome exposes names, a live status, and natural tab order on the synthetic screen', () => {
   assert.match(html, /<html lang="en">/);
   assert.doesNotMatch(html, /tabindex="[1-9]/);
@@ -188,6 +190,7 @@ test('browser chrome exposes names, a live status, and natural tab order on the 
   assert.equal(state.attrs.role, 'status');
   assert.equal(state.attrs['aria-live'], 'polite');
   assert.match(html, /<label for="text-input">Fallback text input<\/label>/);
+  assert.match(html, /aria-describedby="text-input-help text-byte-count"/);
   assert.match(html, /<button id="send-text"[^>]*>Send<\/button>/);
   assert.match(html, /role="group" aria-label="Phone controls"/);
   assert.match(html, /<summary class="icon-button" aria-label="Details and text input"/);

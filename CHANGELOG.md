@@ -16,5 +16,6 @@ Initial public source distribution of DroidDock by Hooware:
 - Bounded subprocess execution, redacted command errors, and retryable cleanup that verifies the intended device.
 - Publication checks for private data, credentials, source provenance, and release archive contents.
 - Reproducible source archives with checksums, dependency updates, and pinned CI and security workflows.
+- Compatibility notes that record CI coverage, intended setup requirements, and the empty live Android/browser matrix, plus how to report a sanitized result.
 
 No live-phone compatibility matrix or stable-release support promise is established by this initial source distribution.

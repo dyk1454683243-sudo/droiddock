@@ -1,6 +1,6 @@
 # Set up DroidDock
 
-The supported host is **Windows**. Use a Chromium browser with WebCodecs support and an Android phone authorized for debugging. Codex is optional; the same local page works in a normal browser. Other operating systems are not supported for live setup by this runbook. Offline CI does not validate device discovery, video, or control on those hosts.
+The supported host is **Windows**. Use a Chromium browser with WebCodecs support and an Android phone authorized for debugging. Codex is optional; the same local page works in a normal browser. Other operating systems are not supported for live setup by this runbook. Offline CI does not validate device discovery, video, or control on those hosts. [Compatibility](COMPATIBILITY.md) lists those requirements separately from checks that have actually been run.
 
 ## Install
 

@@ -6,7 +6,7 @@ DroidDock's next steps prioritize dependable local phone access, clear setup, an
 
 | Area | Useful next outcome | Evidence needed |
 | --- | --- | --- |
-| Compatibility | A documented Windows/browser/Android test matrix. | Volunteer test results with versions, connection type, actual rendered video/control checks, and no device identities. |
+| Compatibility | A documented Windows/browser/Android test matrix. | Volunteer test results added to [COMPATIBILITY.md](COMPATIBILITY.md) with versions, connection type, actual rendered video/control checks, and no device identities. |
 | Lifecycle reliability | Better coverage of connection loss, startup cancellation, and failed cleanup. | Regression tests that demonstrate recovery without touching unrelated ADB resources. |
 | Browser usability | Accessible controls, clearer keyboard focus, and actionable decoder/connection errors. | Keyboard-only review, accessibility checks, and synthetic-screen examples. |
 | Setup and support | Clear recovery for common Windows toolchain, USB, and wireless-debugging failures. | Reproducible sanitized cases and tested instructions. |
@@ -20,7 +20,7 @@ These are scoped ideas suitable for a first contribution; check for an existing 
 - **Add a protocol regression case.** Find an untested malformed or fragmented packet/control boundary in `protocol.ts` and demonstrate the expected rejection or parse behavior.
 - **Audit keyboard access.** Check focus order, visible focus, Escape behavior, and accessible labels in the browser UI; propose a small verified fix.
 - **Clarify an error message.** Reproduce a confusing failure, improve the user-facing explanation without exposing raw device/process output, and cover the behavior where practical.
-- **Contribute a compatibility result.** Follow the live checklist in `CONTRIBUTING.md` and report platform versions and pass/fail results with synthetic content. Do not include serials or private screenshots.
+- **Contribute a compatibility result.** Follow the live checklist in `CONTRIBUTING.md` and the table in [COMPATIBILITY.md](COMPATIBILITY.md). Report platform versions and pass/fail results with synthetic content. Do not include serials or private screenshots.
 
 ## Exploratory work
 

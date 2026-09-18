@@ -3,8 +3,11 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const canvas = $('screen');
+  const dock = $('dock');
+  const fullscreenButton = $('fullscreen');
   const context = canvas.getContext('2d', { alpha: false, desynchronized: true });
   const keyButtons = [...document.querySelectorAll('[data-key]')];
+  const escapeBackSuppressMs = 250;
   let socket = null;
   let decoder = null;
   let decoderConfiguration = null;
@@ -17,6 +20,9 @@
   let moveAnimation = 0;
   let connectionTimer = 0;
   let generation = 0;
+  let escapeSawFullscreen = false;
+  let suppressEscapeBack = false;
+  let suppressEscapeTimer = 0;
   const available = typeof VideoDecoder !== 'undefined' && typeof EncodedVideoChunk !== 'undefined';
 
   function canControl() {
@@ -74,6 +80,54 @@
     const scale = Math.min(bounds.width / canvas.width, bounds.height / canvas.height);
     canvas.style.width = `${Math.max(1, Math.floor(canvas.width * scale))}px`;
     canvas.style.height = `${Math.max(1, Math.floor(canvas.height * scale))}px`;
+  }
+
+  function fullscreenApiAvailable() {
+    return Boolean(document.fullscreenEnabled && dock && typeof dock.requestFullscreen === 'function' && typeof document.exitFullscreen === 'function');
+  }
+
+  function isDockFullscreen() {
+    return Boolean(dock && document.fullscreenElement === dock);
+  }
+
+  function syncFullscreenUi() {
+    const active = isDockFullscreen();
+    dock?.classList.toggle('is-fullscreen', active);
+    if (fullscreenButton && !fullscreenButton.hidden) {
+      const label = active ? 'Exit fullscreen' : 'Enter fullscreen';
+      fullscreenButton.setAttribute('aria-label', label);
+      fullscreenButton.setAttribute('aria-pressed', String(active));
+      fullscreenButton.title = label;
+      const live = $('fullscreen-label');
+      if (live) live.textContent = label;
+    }
+    fitScreen();
+  }
+
+  async function toggleFullscreen() {
+    if (!fullscreenApiAvailable()) return;
+    try {
+      if (isDockFullscreen()) await document.exitFullscreen();
+      else await dock.requestFullscreen();
+    } catch {
+      syncFullscreenUi();
+    }
+  }
+
+  function holdEscapeFromSendingBack(event) {
+    if (closeMoreControls()) {
+      event.preventDefault();
+      return true;
+    }
+    if (isDockFullscreen()) {
+      escapeSawFullscreen = true;
+      return true;
+    }
+    if (suppressEscapeBack) {
+      suppressEscapeBack = false;
+      return true;
+    }
+    return false;
   }
 
   function resetDecoder() {
@@ -343,12 +397,8 @@
     if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
     // Keep normal Tab navigation available; use text entry for tab characters.
     if (event.key === 'Tab') return;
-    // Dismiss the details overlay first so Escape does not send Android Back
-    // while the panel is covering the screen.
-    if (event.key === 'Escape' && closeMoreControls()) {
-      event.preventDefault();
-      return;
-    }
+    // Details first, then a fullscreen exit, before Escape can send Android Back.
+    if (event.key === 'Escape' && holdEscapeFromSendingBack(event)) return;
     if (!canControl()) return;
     const key = keyboardKeys[event.key];
     if (key) { event.preventDefault(); send({ type: 'key', key }); }
@@ -377,8 +427,31 @@
   });
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape' || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (closeMoreControls()) event.preventDefault();
+    holdEscapeFromSendingBack(event);
   });
+  if (fullscreenButton) {
+    if (fullscreenApiAvailable()) {
+      fullscreenButton.hidden = false;
+      fullscreenButton.addEventListener('click', () => toggleFullscreen());
+    } else {
+      fullscreenButton.hidden = true;
+    }
+    syncFullscreenUi();
+  }
+  document.addEventListener('fullscreenchange', () => {
+    if (!isDockFullscreen()) {
+      if (escapeSawFullscreen) escapeSawFullscreen = false;
+      else {
+        suppressEscapeBack = true;
+        clearTimeout(suppressEscapeTimer);
+        suppressEscapeTimer = setTimeout(() => { suppressEscapeBack = false; }, escapeBackSuppressMs);
+      }
+    } else {
+      escapeSawFullscreen = false;
+    }
+    syncFullscreenUi();
+  });
+  document.addEventListener('fullscreenerror', () => { syncFullscreenUi(); });
   new MutationObserver(() => {
     const summary = $('more-controls').querySelector('summary');
     summary.title = $('message').textContent;

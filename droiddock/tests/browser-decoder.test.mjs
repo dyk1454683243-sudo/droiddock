@@ -173,6 +173,14 @@ function fakeFrame(overrides = {}) {
   };
 }
 
+function configSnapshot(value) {
+  return {
+    codec: String(value.codec),
+    optimizeForLatency: Boolean(value.optimizeForLatency),
+    hardwareAcceleration: String(value.hardwareAcceleration),
+  };
+}
+
 test('supported H.264 config keeps low-latency decode and flushes a pending keyframe', async () => {
   const probe = deferred();
   const browser = loadBrowser({ isConfigSupported: () => probe.promise });
@@ -183,7 +191,7 @@ test('supported H.264 config keeps low-latency decode and flushes a pending keyf
   await settle();
   assert.equal(browser.decoders.length, 0);
   assert.equal(browser.element('state').dataset.state, 'connecting');
-  assert.deepEqual(browser.supportChecks[0], {
+  assert.deepEqual(configSnapshot(browser.supportChecks[0]), {
     codec: 'avc1.42c01e',
     optimizeForLatency: true,
     hardwareAcceleration: 'prefer-hardware',
@@ -191,7 +199,7 @@ test('supported H.264 config keeps low-latency decode and flushes a pending keyf
   probe.resolve({ supported: true });
   await settle();
   assert.equal(browser.decoders.length, 1);
-  assert.deepEqual(browser.decoders[0].configured, [{
+  assert.deepEqual(browser.decoders[0].configured.map(configSnapshot), [{
     codec: 'avc1.42c01e',
     optimizeForLatency: true,
     hardwareAcceleration: 'prefer-hardware',

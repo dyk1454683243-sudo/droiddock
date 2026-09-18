@@ -27,8 +27,8 @@ The phone encodes H.264. ADB forwards the session's random scrcpy socket to a dy
 | Location | Responsibility |
 | --- | --- |
 | `src/droiddock/protocol.ts` | Version/hash constants, incremental video framing, control validation and serialization. |
-| `src/droiddock/session.ts` | Verified phone discovery, pinned server launch, ADB forward, video/control sockets, resource cleanup. |
-| `src/droiddock/server.ts` | Loopback HTTP assets, request validation, WebSocket ownership, session lifecycle, status. |
+| `src/droiddock/session.ts` | Verified phone discovery, pinned server launch, ADB forward, video/control sockets, resource cleanup, and a fixed sanitized startup-progress vocabulary. |
+| `src/droiddock/server.ts` | Loopback HTTP assets, request validation, WebSocket ownership, session lifecycle, current-session progress, status. |
 | `src/droiddock/config.ts` | Local config and environment overrides. |
 | `src/process.ts` | Bounded subprocess execution. |
 | `droiddock/public/` | Browser UI, WebCodecs decoding, input events, styles. |
@@ -38,13 +38,13 @@ The phone encodes H.264. ADB forwards the session's random scrcpy socket to a dy
 | `scripts/phone.mjs` | Narrow open/status/disconnect helper for local integrations. |
 | `scripts/*.ps1` | Windows bootstrap, discovery, and entry points. |
 | `scripts/Test-DroidDock.mjs` | Baseline and opt-in live diagnostics. |
-| `droiddock/tests/` | Offline protocol, boundary, ownership, setup, lifecycle, diagnostic, keyboard/focus, and fullscreen UI tests. |
+| `droiddock/tests/` | Offline protocol, boundary, ownership, setup, lifecycle, diagnostic, keyboard/focus, fullscreen, and startup-progress tests. |
 
 ## Ownership and lifecycle
 
 Only one browser WebSocket controls a service's phone session. An explicit Connect action opens a takeover-capable connection; the old view is notified and becomes inactive. Input and disconnect messages are accepted only from the current owner. Old socket-close events must not stop a newer session.
 
-Each session gets its own random socket identifier, temporary device-server file, and ADB forward. Cleanup must remain scoped to those resources and finish before a replacement phone session starts. Shared ADB and unrelated scrcpy processes are not reset. Closing a controlling browser releases the phone session; the HTTP service stays available. Graceful service shutdown closes its client and cleans up its session.
+Each session gets its own random socket identifier, temporary device-server file, and ADB forward. Cleanup must remain scoped to those resources and finish before a replacement phone session starts. Sanitized startup-progress messages are applied only while that session is still current and the service is still connecting; they do not change the connected or rendered success criteria. Shared ADB and unrelated scrcpy processes are not reset. Closing a controlling browser releases the phone session; the HTTP service stays available. Graceful service shutdown closes its client and cleans up its session.
 
 Installation and configuration identifiers let helpers distinguish a service for this checkout/settings from an unrelated listener or different checkout. They are matching aids, not secrets or authorization tokens. Configuration changes require service restart.
 

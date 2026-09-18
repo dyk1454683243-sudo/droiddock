@@ -17,7 +17,7 @@ async function until(check, description) {
   assert.fail(`Timed out waiting for ${description}`);
 }
 
-async function withServer(run, serverPath = 'dist/droiddock/server.js') {
+async function withServer(run, serverPath = 'dist/droiddock/server.js', extraEnv = {}) {
   const reservation = createServer();
   reservation.listen(0, '127.0.0.1');
   await once(reservation, 'listening');
@@ -27,7 +27,7 @@ async function withServer(run, serverPath = 'dist/droiddock/server.js') {
   const peers = [];
   // An invalid serial fails before discovery or ADB, even if a local phone is configured.
   const server = spawn(process.execPath, [serverPath], {
-    env: { ...process.env, DROIDDOCK_PORT: String(port), DROIDDOCK_DEVICE_SERIAL: 'invalid-test-serial' },
+    env: { ...process.env, DROIDDOCK_PORT: String(port), DROIDDOCK_DEVICE_SERIAL: 'invalid-test-serial', ...extraEnv },
     windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
   });
   let output = '';
@@ -164,9 +164,14 @@ test('handoff during session startup ignores obsolete callbacks and stale socket
       import { join } from 'node:path';
       import { setTimeout as delay } from 'node:timers/promises';
       let nextId = 0;
+      export const CONNECTION_PROGRESS = {
+        findingPhone: 'Finding the configured phone…',
+        preparingConnection: 'Preparing the phone connection…',
+        openingStream: 'Opening the video stream…',
+      };
       export class ScrcpySession {
-        constructor(root, onEvent, onFailure) {
-          Object.assign(this, { root, onEvent, onFailure, id: ++nextId });
+        constructor(root, onEvent, onFailure, onProgress = () => {}) {
+          Object.assign(this, { root, onEvent, onFailure, onProgress, id: ++nextId });
         }
         async log(event) { await appendFile(join(this.root, 'events.log'), event + '\\n'); }
         async gate(name) {
@@ -174,6 +179,9 @@ test('handoff during session startup ignores obsolete callbacks and stale socket
         }
         async start() {
           await this.log('start:' + this.id);
+          this.onProgress(CONNECTION_PROGRESS.findingPhone);
+          this.onProgress(CONNECTION_PROGRESS.preparingConnection);
+          this.onProgress(CONNECTION_PROGRESS.openingStream);
           if (this.id === 1) await this.gate('release-start');
           this.onEvent({ type: 'video', sessionId: this.id });
           if (this.id === 1) this.onFailure('Obsolete startup failure');
@@ -187,6 +195,7 @@ test('handoff during session startup ignores obsolete callbacks and stale socket
         }
         async lateCallbacks() {
           await this.gate('release-callbacks');
+          this.onProgress(CONNECTION_PROGRESS.findingPhone);
           this.onEvent({ type: 'video', sessionId: this.id });
           this.onFailure('Obsolete session failure');
           await this.log('callbacks-finished');
@@ -197,6 +206,7 @@ test('handoff during session startup ignores obsolete callbacks and stale socket
       const old = await open();
       old.ws.send(JSON.stringify({ type: 'connect' }));
       await until(async () => (await status()).state === 'connecting', 'old startup');
+      await until(async () => (await status()).message === 'Opening the video stream…', 'old session stage');
       await until(async () => {
         try { return (await readFile(join(fixture, 'events.log'), 'utf8')).includes('start:1'); } catch { return false; }
       }, 'stub session startup');
@@ -228,6 +238,10 @@ test('handoff during session startup ignores obsolete callbacks and stale socket
       await writeFile(join(fixture, 'release-callbacks'), '');
       await until(async () => (await readFile(join(fixture, 'events.log'), 'utf8')).includes('callbacks-finished'), 'obsolete callbacks');
       assert.deepEqual(await status(), connected);
+      const statuses = replacement.messages.filter(value => value.type === 'status');
+      const connectedAt = statuses.findIndex(value => value.state === 'connected');
+      assert.ok(connectedAt >= 0);
+      assert.equal(statuses.slice(connectedAt + 1).some(value => value.state === 'connecting' || value.state === 'error' || value.type === 'video'), false);
       assert.equal(replacement.messages.some(value => value.type === 'video' && value.sessionId === 1), false);
       assert.equal(replacement.messages.some(value => value.type === 'inputError' || value.input), false);
       replacement.ws.send(JSON.stringify({ type: 'key', key: 'home' }));
@@ -239,4 +253,182 @@ test('handoff during session startup ignores obsolete callbacks and stale socket
     assert.ok(fixture.startsWith(fixtureBase + '\\') || fixture.startsWith(fixtureBase + '/'));
     await rm(fixture, { recursive: true, force: true });
   }
+});
+
+async function withSessionFixture(name, sessionSource, run, extraEnv = {}) {
+  const fixtureBase = resolve('.setup');
+  await mkdir(fixtureBase, { recursive: true });
+  const fixture = await mkdtemp(join(fixtureBase, name));
+  const fixtureDist = join(fixture, 'dist/droiddock');
+  try {
+    await mkdir(fixtureDist, { recursive: true });
+    for (const file of ['server.js', 'config.js', 'protocol.js']) {
+      await copyFile(join('dist/droiddock', file), join(fixtureDist, file));
+    }
+    await writeFile(join(fixtureDist, 'session.js'), sessionSource);
+    await run(fixture, join(fixtureDist, 'server.js'), extraEnv);
+  } finally {
+    assert.ok(fixture.startsWith(fixtureBase + '\\') || fixture.startsWith(fixtureBase + '/'));
+    await rm(fixture, { recursive: true, force: true });
+  }
+}
+
+const progressExports = `
+      export const CONNECTION_PROGRESS = {
+        findingPhone: 'Finding the configured phone…',
+        preparingConnection: 'Preparing the phone connection…',
+        openingStream: 'Opening the video stream…',
+      };
+`;
+
+test('disconnect ignores delayed progress callbacks and stays off the connected state', { timeout: 15000 }, async () => {
+  await withSessionFixture('progress-disconnect-', `
+      import { access, appendFile } from 'node:fs/promises';
+      import { join } from 'node:path';
+      import { setTimeout as delay } from 'node:timers/promises';
+      ${progressExports}
+      export class ScrcpySession {
+        constructor(root, onEvent, onFailure, onProgress = () => {}) {
+          Object.assign(this, { root, onEvent, onFailure, onProgress });
+        }
+        async log(event) { await appendFile(join(this.root, 'events.log'), event + '\\n'); }
+        async gate(name) {
+          while (true) { try { await access(join(this.root, name)); return; } catch { await delay(10); } }
+        }
+        async start(signal) {
+          await this.log('start');
+          this.onProgress(CONNECTION_PROGRESS.findingPhone);
+          await new Promise((_, reject) => {
+            const fail = () => reject(Object.assign(new Error('Connection cancelled.'), { name: 'AbortError' }));
+            if (signal?.aborted) fail();
+            else signal?.addEventListener('abort', fail, { once: true });
+          });
+        }
+        input() { throw new Error('Connect your phone first.'); }
+        async stop() {
+          await this.log('stop');
+          void this.lateCallbacks();
+        }
+        async lateCallbacks() {
+          await this.gate('release-callbacks');
+          this.onProgress(CONNECTION_PROGRESS.openingStream);
+          this.onEvent({ type: 'video', sessionId: 1 });
+          this.onFailure('Obsolete disconnected failure');
+          await this.log('callbacks-finished');
+        }
+      }
+    `, async (fixture, serverPath) => {
+    await withServer(async ({ open, status }) => {
+      const item = await open();
+      item.ws.send(JSON.stringify({ type: 'connect' }));
+      await until(async () => (await status()).message === 'Finding the configured phone…', 'disconnect fixture startup');
+      item.ws.send(JSON.stringify({ type: 'disconnect' }));
+      await until(async () => (await status()).state === 'idle', 'disconnect cleanup');
+      const idle = await status();
+      await writeFile(join(fixture, 'release-callbacks'), '');
+      await until(async () => {
+        try { return (await readFile(join(fixture, 'events.log'), 'utf8')).includes('callbacks-finished'); } catch { return false; }
+      }, 'delayed disconnect callbacks');
+      assert.deepEqual(await status(), idle);
+      assert.equal(idle.state, 'idle');
+      assert.equal(item.messages.some(value => value.type === 'video'), false);
+      assert.equal(item.messages.some(value => value.state === 'connected'), false);
+    }, serverPath);
+  });
+});
+
+test('startup timeout stays in error and ignores late progress or video', { timeout: 15000 }, async () => {
+  await withSessionFixture('progress-timeout-', `
+      import { access, appendFile } from 'node:fs/promises';
+      import { join } from 'node:path';
+      import { setTimeout as delay } from 'node:timers/promises';
+      ${progressExports}
+      export class ScrcpySession {
+        constructor(root, onEvent, onFailure, onProgress = () => {}) {
+          Object.assign(this, { root, onEvent, onFailure, onProgress });
+        }
+        async log(event) { await appendFile(join(this.root, 'events.log'), event + '\\n'); }
+        async gate(name) {
+          while (true) { try { await access(join(this.root, name)); return; } catch { await delay(10); } }
+        }
+        async start(signal) {
+          await this.log('start');
+          this.onProgress(CONNECTION_PROGRESS.findingPhone);
+          await new Promise((_, reject) => {
+            const fail = () => reject(Object.assign(new Error('Connection cancelled.'), { name: 'AbortError' }));
+            if (signal?.aborted) fail();
+            else signal?.addEventListener('abort', fail, { once: true });
+          });
+        }
+        input() { throw new Error('Connect your phone first.'); }
+        async stop() {
+          await this.log('stop');
+          void this.lateCallbacks();
+        }
+        async lateCallbacks() {
+          await this.gate('release-callbacks');
+          this.onProgress(CONNECTION_PROGRESS.openingStream);
+          this.onEvent({ type: 'video', sessionId: 1 });
+          this.onFailure('Late timeout failure');
+          await this.log('callbacks-finished');
+        }
+      }
+    `, async (fixture, serverPath, extraEnv) => {
+    await withServer(async ({ open, status }) => {
+      const item = await open();
+      item.ws.send(JSON.stringify({ type: 'connect' }));
+      await until(async () => (await status()).state === 'error', 'startup timeout');
+      const failed = await status();
+      assert.match(failed.message, /timed out/i);
+      assert.equal(failed.state, 'error');
+      assert.equal(item.messages.some(value => value.state === 'connected' || value.type === 'video'), false);
+      await writeFile(join(fixture, 'release-callbacks'), '');
+      await until(async () => {
+        try { return (await readFile(join(fixture, 'events.log'), 'utf8')).includes('callbacks-finished'); } catch { return false; }
+      }, 'late timeout callbacks');
+      assert.deepEqual(await status(), failed);
+      assert.equal(item.messages.some(value => value.state === 'connected' || value.type === 'video'), false);
+    }, serverPath, extraEnv);
+  }, { DROIDDOCK_STARTUP_TIMEOUT_MS: '80' });
+});
+
+test('startup failure reports error without a connected or rendered state', { timeout: 15000 }, async () => {
+  await withSessionFixture('progress-failure-', `
+      ${progressExports}
+      export class ScrcpySession {
+        constructor(root, onEvent, onFailure, onProgress = () => {}) {
+          Object.assign(this, { root, onEvent, onFailure, onProgress });
+        }
+        async start() {
+          this.onProgress(CONNECTION_PROGRESS.findingPhone);
+          this.onProgress(CONNECTION_PROGRESS.preparingConnection);
+          this.onProgress(CONNECTION_PROGRESS.openingStream);
+          throw new Error('Could not connect to the phone. Check the phone connection and local tool installation.');
+        }
+        input() { throw new Error('Connect your phone first.'); }
+        async stop() {}
+      }
+    `, async (_fixture, serverPath) => {
+    await withServer(async ({ open, status }) => {
+      const item = await open();
+      item.ws.send(JSON.stringify({ type: 'connect' }));
+      await until(async () => (await status()).state === 'error', 'startup failure');
+      const failed = await status();
+      assert.match(failed.message, /Could not connect to the phone/);
+      assert.equal(failed.state, 'error');
+      assert.equal(item.messages.some(value => value.state === 'connected' || value.type === 'video'), false);
+      const stages = [...new Set(item.messages.filter(value => value.type === 'status' && value.state === 'connecting').map(value => value.message))];
+      assert.deepEqual(stages.slice(0, 3), [
+        'Finding the configured phone…',
+        'Preparing the phone connection…',
+        'Opening the video stream…',
+      ]);
+      assert.ok(stages.every(message => [
+        'Finding the configured phone…',
+        'Preparing the phone connection…',
+        'Opening the video stream…',
+        'Disconnecting and cleaning up the phone connection…',
+      ].includes(message)));
+    }, serverPath);
+  });
 });

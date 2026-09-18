@@ -18,7 +18,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/Install-DroidDoc
 
 The installer reuses compatible tools or installs Node.js 24+, PowerShell 7, and Android platform tools through WinGet. It installs locked dependencies, builds and checks the project, configures the intended phone, and starts the local service. Package installation can require platform approval and accepts the selected packages' agreements. Review the [setup guide](docs/SETUP.md) for dependency options and recovery.
 
-Enable USB debugging, connect a data cable, and authorize the PC on the phone when prompted. If setup reports `needs_action`, complete that action and rerun it. Open the returned URL (normally **http://127.0.0.1:3210/**) in your browser and click **Connect**. A successful setup result alone does not confirm that video rendered.
+Enable USB debugging, connect a data cable, and authorize the PC on the phone when prompted. If setup reports `needs_action`, complete that action and rerun it. Open the returned URL (normally **http://127.0.0.1:3210/**) in your browser and click **Connect**. The page reports which connection step is in progress. A successful setup result alone does not confirm that video rendered. Phone controls stay unavailable until a live frame appears.
 
 To reopen an installed copy:
 

@@ -71,4 +71,4 @@ Never silently select whichever scrcpy server happens to be installed on the hos
 
 ## Evidence boundaries
 
-Offline tests use synthetic protocol data, local HTTP/WebSocket interactions, and injected/mocked device dependencies. They establish the tested behaviors, not real phone/browser compatibility. Live diagnostics establish metadata/frame-packet evidence; actual rendered video needs browser inspection. Report those layers separately when validating a change.
+Offline tests use synthetic protocol data, local HTTP/WebSocket interactions, and injected/mocked device dependencies. They establish the tested behaviors, not real phone/browser compatibility. Live diagnostics establish metadata/frame-packet evidence; actual rendered video needs browser inspection. Report those layers separately when validating a change. [COMPATIBILITY.md](COMPATIBILITY.md) is the published record of those layers.

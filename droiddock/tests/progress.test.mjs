@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { createServer } from 'node:net';
+import { readFileSync } from 'node:fs';
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -83,13 +84,16 @@ function countWrites(element) {
 }
 
 test('connection progress vocabulary is a small sanitized stage list', () => {
-  assert.deepEqual(Object.values(CONNECTION_PROGRESS), [
+  const stages = [
     'Finding the configured phone…',
     'Preparing the phone connection…',
     'Opening the video stream…',
-  ]);
-  for (const text of Object.values(CONNECTION_PROGRESS)) {
+  ];
+  assert.deepEqual(Object.values(CONNECTION_PROGRESS), stages);
+  const serverSource = readFileSync(new URL('../../src/droiddock/server.ts', import.meta.url), 'utf8');
+  for (const text of stages) {
     assert.doesNotMatch(text, /%|\bETA\b|\b\d{1,3}(?:\.\d{1,3}){3}\b|tcp:|adb |[/\\]|scrcpy_|serial/i);
+    assert.ok(serverSource.includes(`"${text}"`), `server allowlist includes ${text}`);
   }
 });
 

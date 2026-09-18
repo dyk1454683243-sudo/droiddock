@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { WebSocket, WebSocketServer } from "ws";
-import { ScrcpySession, CONNECTION_PROGRESS, type ConnectionProgressMessage } from "./session.js";
+import { ScrcpySession } from "./session.js";
 import { SCRCPY_VERSION } from "./protocol.js";
 import { config } from "./config.js";
 
@@ -30,7 +30,11 @@ let connectionIntent = 0;
 const cleanupSessions = new Set<ScrcpySession>();
 const cleanupMessage = "Phone cleanup could not be confirmed. Restore the phone connection and select Connect to retry cleanup.";
 
-const progressMessages = new Set<string>(Object.values(CONNECTION_PROGRESS));
+const connectingProgress = new Set([
+  "Finding the configured phone…",
+  "Preparing the phone connection…",
+  "Opening the video stream…",
+]);
 function startupTimeoutMs(): number {
   const value = Number(process.env.DROIDDOCK_STARTUP_TIMEOUT_MS);
   return Number.isInteger(value) && value >= 50 && value <= 120000 ? value : 35000;
@@ -41,8 +45,8 @@ function setState(next: State, detail: string) {
   if (state === next && message === detail) return;
   state = next; message = detail; send(status());
 }
-function applyConnectingProgress(current: ScrcpySession, detail: ConnectionProgressMessage) {
-  if (session !== current || state !== "connecting" || !progressMessages.has(detail)) return;
+function applyConnectingProgress(current: ScrcpySession, detail: string) {
+  if (session !== current || state !== "connecting" || !connectingProgress.has(detail)) return;
   setState("connecting", detail);
 }
 async function cleanup(): Promise<void> {
@@ -80,7 +84,7 @@ async function connect(): Promise<void> {
     if (cleanupSessions.size) { setState("error", cleanupMessage); return; }
   }
   packetCount = 0;
-  setState("connecting", CONNECTION_PROGRESS.findingPhone);
+  setState("connecting", "Finding the configured phone…");
   abort = new AbortController();
   const current = new ScrcpySession(root, event => {
     if (session !== current) return;

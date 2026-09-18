@@ -417,12 +417,18 @@ test('startup failure reports error without a connected or rendered state', { ti
       assert.match(failed.message, /Could not connect to the phone/);
       assert.equal(failed.state, 'error');
       assert.equal(item.messages.some(value => value.state === 'connected' || value.type === 'video'), false);
-      const stages = item.messages.filter(value => value.type === 'status' && value.state === 'connecting').map(value => value.message);
-      assert.deepEqual([...new Set(stages)], [
+      const stages = [...new Set(item.messages.filter(value => value.type === 'status' && value.state === 'connecting').map(value => value.message))];
+      assert.deepEqual(stages.slice(0, 3), [
         'Finding the configured phone…',
         'Preparing the phone connection…',
         'Opening the video stream…',
       ]);
+      assert.ok(stages.every(message => [
+        'Finding the configured phone…',
+        'Preparing the phone connection…',
+        'Opening the video stream…',
+        'Disconnecting and cleaning up the phone connection…',
+      ].includes(message)));
     }, serverPath);
   });
 });

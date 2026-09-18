@@ -2,13 +2,16 @@ name: Package release candidate
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/release-candidate.yml'
 
 permissions:
   contents: read
 
 jobs:
   package:
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

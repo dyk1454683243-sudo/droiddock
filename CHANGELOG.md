@@ -4,7 +4,7 @@ Changes are recorded here when they affect users or contributors. This document 
 
 ## Unreleased
 
-- Keyboard and focus accessibility on the browser chrome: a 3:1 focus outline, a connection status live region outside the details panel, Escape that closes that panel before sending Android Back, and offline tests of names, tab order, and keyboard behavior on a synthetic screen.
+- Keyboard and focus accessibility on the browser chrome: a rail focus outline with at least 3:1 contrast on its light backgrounds and a canvas outline tested against black, a connection status live region outside the details panel, Escape that closes that panel before sending Android Back, and offline tests of names, tab order, and keyboard behavior on a synthetic screen.
 
 Initial public source distribution of DroidDock by Hooware:
 
@@ -18,5 +18,6 @@ Initial public source distribution of DroidDock by Hooware:
 - Bounded subprocess execution, redacted command errors, and retryable cleanup that verifies the intended device.
 - Publication checks for private data, credentials, source provenance, and release archive contents.
 - Reproducible source archives with checksums, dependency updates, and pinned CI and security workflows.
+- Compatibility notes that record CI coverage, intended setup requirements, and the empty live Android/browser matrix, plus how to report a sanitized result.
 
 No live-phone compatibility matrix or stable-release support promise is established by this initial source distribution.

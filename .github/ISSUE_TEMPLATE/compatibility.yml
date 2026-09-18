@@ -1,0 +1,52 @@
+name: Compatibility result
+description: Report a sanitized live Android and browser check for the compatibility matrix.
+title: "[Compatibility]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to add evidence to docs/COMPATIBILITY.md. Report only checks you actually ran. Offline tests and packet counters are not rendered video. Do not post secrets, pairing codes, device serials, network addresses, machine paths, raw logs, or screenshots of private phone screens. Use a synthetic or otherwise non-private screen.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Before submitting
+      options:
+        - label: I read docs/COMPATIBILITY.md and CONTRIBUTING.md.
+          required: true
+        - label: This report contains no secrets, personal identifiers, device serials, raw logs, or private phone screenshots.
+          required: true
+        - label: I marked checks I did not run as Not run instead of inferring a pass.
+          required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Repository revision or version, Windows version, Node.js version, browser name and version, Android version, and USB or wireless. Do not include serials, model names that identify a personal device, accounts, network addresses, or local paths.
+      placeholder: |
+        Revision: <short SHA>
+        Host: Windows <version>
+        Node.js: <version>
+        Browser: <name> <version>
+        Android: <version>
+        Connection: USB
+    validations:
+      required: true
+  - type: textarea
+    id: results
+    attributes:
+      label: Live checks
+      description: Use Pass, Fail, or Not run for each item. Distinguish rendered video from packet diagnostics.
+      placeholder: |
+        Rendered video: Not run
+        Input: Not run
+        Rotation: Not run
+        Reconnect: Not run
+        Handoff: Not run
+        Packet diagnostic: Not run
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Sanitized notes
+      description: Short detail that would help a maintainer add a matrix row. No identifying information or raw output.

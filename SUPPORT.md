@@ -1,6 +1,6 @@
 # Support
 
-Start with the [setup and recovery guide](docs/SETUP.md). Windows is the supported live host; a Chromium browser with WebCodecs support and an authorized Android phone are required. [Codex integration](docs/CODEX.md) is optional.
+Start with the [setup and recovery guide](docs/SETUP.md). Windows is the supported live host; a Chromium browser with WebCodecs support and an authorized Android phone are required. [Codex integration](docs/CODEX.md) is optional. The [compatibility notes](docs/COMPATIBILITY.md) record CI coverage and the live Android/browser matrix; they do not invent untested support.
 
 For bugs, questions, and feature requests, use [GitHub issues](https://github.com/hooware-ai/droiddock/issues). Search for an existing report first. Community support is provided as available, with no response-time guarantee.
 

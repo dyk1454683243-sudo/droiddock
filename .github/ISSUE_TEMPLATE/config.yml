@@ -6,3 +6,6 @@ contact_links:
   - name: Setup and troubleshooting guide
     url: https://github.com/hooware-ai/droiddock/blob/main/docs/SETUP.md
     about: Start here for installation, phone authorization, and recovery.
+  - name: Compatibility notes
+    url: https://github.com/hooware-ai/droiddock/blob/main/docs/COMPATIBILITY.md
+    about: See CI coverage, untested live columns, and how to report a sanitized result.

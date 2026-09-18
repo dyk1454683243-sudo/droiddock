@@ -29,7 +29,7 @@ Keep dependencies locked. Never commit `config.local.json`, `.env` files, logs, 
 
 For changes to device/session behavior or video/control UI, also perform relevant live checks on a Windows host and an authorized test phone when available: rendered video, harmless tap/drag, keyboard and paste, rotation, disconnect/reconnect, closed-tab cleanup, handoff, and connection loss. Verify that session-owned ADB forwards are removed without disturbing unrelated resources. Use a test screen without private data.
 
-Report exactly which checks you ran and their results. If a phone or platform is unavailable, mark the live check as **not run** and explain the gap; do not infer live success from mocked tests or packet counters. Maintainers decide which additional evidence is needed before merging.
+Report exactly which checks you ran and their results. If a phone or platform is unavailable, mark the live check as **not run** and explain the gap; do not infer live success from mocked tests or packet counters. Maintainers decide which additional evidence is needed before merging. Use the table in [compatibility](docs/COMPATIBILITY.md) when recording Android and browser results.
 
 ## Pull requests and review
 

@@ -4,7 +4,7 @@
 
 DroidDock brings live Android video and familiar phone controls to a local browser tab. Use it beside your work, or open it inside a local Codex task. The phone encodes H.264 with the unmodified **scrcpy 4.1 server**; DroidDock relays it to the browser's WebCodecs decoder without desktop capture or video re-encoding.
 
-An open-source tool from [Hooware AI](https://github.com/hooware-ai). Early-stage software: supported setup is Windows, and live phone compatibility needs testing on your device.
+An open-source tool from [Hooware AI](https://github.com/hooware-ai). Early-stage software: supported setup is Windows, and live phone compatibility needs testing on your device. See the [compatibility notes](docs/COMPATIBILITY.md) for what CI covers and how to report a sanitized live result.
 
 ## Get started on Windows
 
@@ -65,7 +65,7 @@ npm ci --ignore-scripts
 npm run verify
 ```
 
-`npm test` uses built output, so build first. The suite covers protocol framing, structured controls, HTTP/WebSocket boundaries, ownership handoff, setup, diagnostics, lifecycle helpers, and keyboard/focus accessibility of the browser chrome. Linux CI runs offline checks; it does not establish Linux host support or live Android compatibility. Windows phone/video checks are separate and require an authorized device.
+`npm test` uses built output, so build first. The suite covers protocol framing, structured controls, HTTP/WebSocket boundaries, ownership handoff, setup, diagnostics, lifecycle helpers, and keyboard/focus accessibility of the browser chrome. Linux and Windows CI run offline checks; they do not establish Linux host support or live Android compatibility. Windows phone/video checks are separate and require an authorized device. The [compatibility notes](docs/COMPATIBILITY.md) record that coverage.
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md), the [architecture](docs/ARCHITECTURE.md), and the [starter tasks](docs/ROADMAP.md#starter-tasks). AI-assisted contributions are welcome. Contributors remain responsible for accuracy, provenance, privacy, and tests; maintainers review changes before merge.
 
@@ -74,6 +74,7 @@ Start with [CONTRIBUTING.md](CONTRIBUTING.md), the [architecture](docs/ARCHITECT
 | Need | Guide |
 | --- | --- |
 | Install, authorize a phone, recover, or remove | [Setup](docs/SETUP.md) |
+| See tested Android and browser coverage | [Compatibility](docs/COMPATIBILITY.md) |
 | Open the phone in a local Codex task | [Codex integration](docs/CODEX.md) |
 | Understand the bridge and upgrade scrcpy | [Architecture](docs/ARCHITECTURE.md) |
 | Report a bug or ask for help | [Support](SUPPORT.md) |

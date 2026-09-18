@@ -123,6 +123,8 @@ function loadBrowser() {
       getElementById: element,
       querySelectorAll: (sel) => sel === '[data-key]' ? keyButtons : [],
       addEventListener(name, handler) { documentHandlers[name] = handler; },
+      fullscreenEnabled: false,
+      fullscreenElement: null,
     },
     window: { addEventListener() {} },
     location: { protocol: 'http:', host: '127.0.0.1:3210' },
@@ -202,8 +204,9 @@ test('browser chrome exposes names, a live status, and natural tab order on the 
   const canvasAt = html.indexOf('id="screen"');
   const connectAt = html.indexOf('id="connect"');
   const firstKey = html.indexOf('data-key="back"');
+  const fullscreenAt = html.indexOf('id="fullscreen"');
   const detailsAt = html.indexOf('id="more-controls"');
-  assert.ok(canvasAt < connectAt && connectAt < firstKey && firstKey < detailsAt);
+  assert.ok(canvasAt < connectAt && connectAt < firstKey && firstKey < fullscreenAt && fullscreenAt < detailsAt);
 });
 
 test('visible focus styles meet a 3:1 contrast ratio on the empty rail and dark screen', () => {

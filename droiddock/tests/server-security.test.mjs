@@ -159,25 +159,66 @@ test('disconnect waits for cleanup and failed cleanup must succeed before reconn
   assert.equal((await (await bridge.post('disconnect')).json()).state, 'idle');
 });
 
-async function sessionFixture(t) {
-  const base = resolve('.setup');
-  await mkdir(base, { recursive: true });
-  const root = await mkdtemp(join(base, 'cleanup-test-'));
-  const folder = join(root, 'dist/droiddock');
-  await mkdir(folder, { recursive: true });
-  for (const name of ['session.js', 'protocol.js']) await copyFile(join('dist/droiddock', name), join(folder, name));
-  await writeFile(join(folder, 'config.js'), `export const config = { adb:'SYNTHETIC_ADB', deviceSerial:'SYNTHETICPHONE' };`);
-  await writeFile(join(root, 'dist/process.js'), `
-    export const state = { calls:[], forward:'', oldIdentity:null, newIdentity:'SYNTHETICPHONE', discovery:'NEW', failRemove:false, failRm:false, allocationTimeout:false };
+function commandStage(call) {
+  if (call.file === 'pwsh') return 'discovery';
+  if (call.args[2] === 'push') return 'push';
+  if (call.args[2] === 'forward' && call.args[3] === 'tcp:0') return 'allocate';
+  if (call.args.includes('--remove')) return 'remove';
+  if (call.args[2] === 'shell' && call.args[3] === 'rm') return 'rm';
+  if (call.args.includes('getprop')) return 'identity';
+  if (call.args[0] === 'forward' && call.args[1] === '--list') return 'list';
+  return 'other';
+}
+
+function syntheticProcessModule({ commandLog, releaseDir, consumeRelease = false, defaultHold = {} } = {}) {
+  const logLine = commandLog
+    ? `await appendFile(${JSON.stringify(commandLog)}, JSON.stringify({file,args}) + '\\n');`
+    : '';
+  const gate = releaseDir
+    ? `
+      if (state.hold[kind]) {
+        const gateFile = ${JSON.stringify(join(releaseDir, 'release-'))} + kind;
+        while (true) {
+          try {
+            await access(gateFile);
+            ${consumeRelease ? 'await rm(gateFile);' : ''}
+            break;
+          } catch { await delay(10); }
+        }
+      }`
+    : `
+      if (state.hold[kind] && !state.released[kind]) await new Promise(resolve => { state.waiters[kind] = resolve; });`;
+  return `
+    import { access, appendFile, rm } from 'node:fs/promises';
+    import { setTimeout as delay } from 'node:timers/promises';
+    export const state = {
+      calls:[], forward:'', oldIdentity:null, newIdentity:'SYNTHETICPHONE', discovery:'NEW',
+      failRemove:false, failRm:false, allocationTimeout:false,
+      hold:Object.assign(Object.create(null), ${JSON.stringify(defaultHold)}),
+      waiters:Object.create(null), released:Object.create(null),
+    };
+    export function release(kind) { state.released[kind] = true; state.waiters[kind]?.(); }
+    function kindOf(file, args) {
+      if (file === 'pwsh') return 'discovery';
+      if (args[2] === 'push') return 'push';
+      if (args[2] === 'forward' && args[3] === 'tcp:0') return 'allocate';
+      if (args.includes('--remove')) return 'remove';
+      if (args[2] === 'shell' && args[3] === 'rm') return 'rm';
+      return '';
+    }
     export async function runChecked(file, args) {
       state.calls.push({file,args});
+      ${logLine}
+      const kind = kindOf(file, args);
+      ${gate}
       if (file === 'pwsh') return {stdout:state.discovery};
       if (args[0] === 'forward' && args[1] === '--list') return {stdout:state.forward};
       const transport = args[1];
       if (args[2] === 'push') return {stdout:''};
-      if (args[2] === 'forward' && args[3] === 'tcp:0' && state.allocationTimeout) {
+      if (args[2] === 'forward' && args[3] === 'tcp:0') {
         state.forward += '\\n' + transport + ' tcp:45678 ' + args[4];
-        throw new Error('Synthetic allocation timeout');
+        if (state.allocationTimeout) throw new Error('Synthetic allocation timeout');
+        return {stdout:'45678'};
       }
       if (args[2] === 'shell' && args[3] === 'getprop') {
         const identity = transport === 'OLD' ? state.oldIdentity : state.newIdentity;
@@ -195,16 +236,92 @@ async function sessionFixture(t) {
       }
       throw new Error('Unexpected synthetic command');
     }
-  `);
+  `;
+}
+
+async function installVendor(root) {
+  const vendor = join(root, 'droiddock/vendor/scrcpy-4.1');
+  await mkdir(vendor, { recursive: true });
+  await copyFile('droiddock/vendor/scrcpy-4.1/scrcpy-server', join(vendor, 'scrcpy-server'));
+}
+
+async function sessionFixture(t, { vendor = false } = {}) {
+  const base = resolve('.setup');
+  await mkdir(base, { recursive: true });
+  const root = await mkdtemp(join(base, 'cleanup-test-'));
+  const folder = join(root, 'dist/droiddock');
+  await mkdir(folder, { recursive: true });
+  for (const name of ['session.js', 'protocol.js']) await copyFile(join('dist/droiddock', name), join(folder, name));
+  await writeFile(join(folder, 'config.js'), `export const config = { adb:'SYNTHETIC_ADB', deviceSerial:'SYNTHETICPHONE' };`);
+  await writeFile(join(root, 'dist/process.js'), syntheticProcessModule());
+  if (vendor) await installVendor(root);
   t.after(async () => {
     assert.ok(root.startsWith(base + '/') || root.startsWith(base + '\\'));
     await rm(root, { recursive: true, force: true });
   });
   const { ScrcpySession } = await import(pathToFileURL(join(folder, 'session.js')));
-  const { state } = await import(pathToFileURL(join(root, 'dist/process.js')));
+  const processModule = await import(pathToFileURL(join(root, 'dist/process.js')));
   const { config } = await import(pathToFileURL(join(folder, 'config.js')));
   const session = new ScrcpySession(root, () => {}, () => {});
-  return { root, folder, state, config, session };
+  return { root, folder, state: processModule.state, release: processModule.release, config, session };
+}
+
+async function readCommandLog(root) {
+  try {
+    return (await readFile(join(root, 'commands.log'), 'utf8')).trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
+  } catch { return []; }
+}
+
+async function startupBridge(t) {
+  const base = resolve('.setup');
+  await mkdir(base, { recursive: true });
+  const root = await mkdtemp(join(base, 'startup-cancel-'));
+  const folder = join(root, 'dist/droiddock');
+  await mkdir(folder, { recursive: true });
+  for (const name of ['server.js', 'session.js', 'config.js', 'protocol.js']) {
+    await copyFile(join('dist/droiddock', name), join(folder, name));
+  }
+  await writeFile(join(root, 'dist/process.js'), syntheticProcessModule({
+    commandLog: join(root, 'commands.log'),
+    releaseDir: root,
+    consumeRelease: true,
+    defaultHold: { push: true, allocate: true, rm: true },
+  }));
+  await installVendor(root);
+  const reservation = createServer();
+  reservation.listen(0, '127.0.0.1'); await once(reservation, 'listening');
+  const port = reservation.address().port;
+  await new Promise(done => reservation.close(done));
+  const origin = `http://127.0.0.1:${port}`;
+  const child = spawn(process.execPath, [join(folder, 'server.js')], {
+    env: { ...process.env, DROIDDOCK_PORT: String(port), DROIDDOCK_DEVICE_SERIAL: 'SYNTHETICPHONE', DROIDDOCK_ADB: 'SYNTHETIC_ADB' },
+    windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'],
+  });
+  let output = '';
+  child.stderr.on('data', data => { output += data; });
+  const exited = once(child, 'exit');
+  let ws;
+  t.after(async () => {
+    ws?.terminate();
+    if (child.exitCode === null) child.kill('SIGKILL');
+    await exited;
+    assert.ok(root.startsWith(base + '/') || root.startsWith(base + '\\'));
+    await rm(root, { recursive: true, force: true });
+    assert.doesNotMatch(output, /UnhandledPromiseRejection|uncaughtException/);
+  });
+  const status = async () => (await fetch(`${origin}/api/status`)).json();
+  await until(async () => { try { return (await status()).app === 'DroidDock'; } catch { return false; } });
+  ws = new WebSocket(`ws://127.0.0.1:${port}/stream`, { origin });
+  ws.on('error', () => {});
+  const messages = [];
+  ws.on('message', data => messages.push(JSON.parse(data.toString())));
+  await once(ws, 'open');
+  return {
+    root, messages, status,
+    send: type => ws.send(JSON.stringify({ type })),
+    commands: () => readCommandLog(root),
+    release: kind => writeFile(join(root, 'release-' + kind), ''),
+  };
 }
 
 test('cleanup follows the original permanent identity to a changed wireless endpoint', async t => {
@@ -269,10 +386,7 @@ test('already removed forward needs no removal and failed remote cleanup can ret
 });
 
 test('allocation timeout recovers only the exact owned forward when the returned port is unknown', async t => {
-  const { session, state, root } = await sessionFixture(t);
-  const vendor = join(root, 'droiddock/vendor/scrcpy-4.1');
-  await mkdir(vendor, { recursive: true });
-  await copyFile('droiddock/vendor/scrcpy-4.1/scrcpy-server', join(vendor, 'scrcpy-server'));
+  const { session, state } = await sessionFixture(t, { vendor: true });
   state.forward = [
     'NEW tcp:12345 localabstract:unrelated',
     `OTHER tcp:23456 localabstract:scrcpy_${session.scid}`,
@@ -324,4 +438,125 @@ test('malformed configuration never retains a parser cause containing private te
     assert.equal(error.cause, undefined);
     return true;
   });
+});
+
+test('already-aborted startup never issues a device command', async t => {
+  const { session, state } = await sessionFixture(t, { vendor: true });
+  const abort = new AbortController();
+  abort.abort();
+  await assert.rejects(session.start(abort.signal), error => {
+    assert.equal(error.name, 'AbortError');
+    return true;
+  });
+  assert.deepEqual(state.calls, []);
+  await session.stop();
+  assert.deepEqual(state.calls, []);
+  assert.equal(session.child, undefined);
+  assert.equal(session.remoteMayExist, false);
+  assert.equal(session.forwardMayExist, false);
+});
+
+test('cancel during discovery prevents the later vendor push after discovery settles', async t => {
+  const { session, state, release } = await sessionFixture(t, { vendor: true });
+  state.hold.discovery = true;
+  const abort = new AbortController();
+  const started = session.start(abort.signal);
+  const discovery = await until(() => state.calls.find(call => commandStage(call) === 'discovery'));
+  assert.match(discovery.args[discovery.args.indexOf('-DeviceSerial') + 1], /^SYNTHETICPHONE$/);
+  abort.abort();
+  assert.deepEqual(state.calls.map(commandStage), ['discovery']);
+  release('discovery');
+  await assert.rejects(started, error => {
+    assert.equal(error.name, 'AbortError');
+    return true;
+  });
+  assert.deepEqual(state.calls.map(commandStage), ['discovery', 'identity']);
+  assert.equal(session.remoteMayExist, false);
+  await session.stop();
+  assert.deepEqual(state.calls.map(commandStage), ['discovery', 'identity']);
+  assert.equal(state.calls.some(call => ['push', 'allocate', 'remove', 'rm'].includes(commandStage(call))), false);
+});
+
+test('cancel during push prevents tunnel allocation and cleans only the session-owned remote file', async t => {
+  const { session, state, release } = await sessionFixture(t, { vendor: true });
+  state.hold.push = true;
+  state.forward = 'NEW tcp:12345 localabstract:unrelated\nOTHER tcp:23456 localabstract:scrcpy_deadbeef';
+  const unrelated = state.forward;
+  const abort = new AbortController();
+  const started = session.start(abort.signal);
+  const pushed = await until(() => state.calls.find(call => commandStage(call) === 'push'));
+  abort.abort();
+  assert.deepEqual(state.calls.map(commandStage), ['discovery', 'identity', 'push']);
+  assert.equal(pushed.args.at(-1), session.remote);
+  release('push');
+  await assert.rejects(started, error => {
+    assert.equal(error.name, 'AbortError');
+    return true;
+  });
+  assert.deepEqual(state.calls.map(commandStage), ['discovery', 'identity', 'push']);
+  assert.equal(session.remoteMayExist, true);
+  assert.equal(session.forwardMayExist, false);
+  assert.equal(session.child, undefined);
+  await session.stop();
+  assert.deepEqual(state.calls.map(commandStage), ['discovery', 'identity', 'push', 'identity', 'rm']);
+  assert.deepEqual(state.calls.filter(call => commandStage(call) === 'rm').map(call => call.args), [['-s', 'NEW', 'shell', 'rm', '-f', session.remote]]);
+  assert.equal(state.calls.some(call => commandStage(call) === 'allocate' || commandStage(call) === 'remove'), false);
+  assert.equal(state.forward, unrelated);
+  assert.equal(session.remoteMayExist, false);
+});
+
+test('cancel during tunnel allocation prevents scrcpy launch and cleans the exact owned forward and file', async t => {
+  const { session, state, release } = await sessionFixture(t, { vendor: true });
+  state.hold.allocate = true;
+  state.forward = [
+    'NEW tcp:12345 localabstract:unrelated',
+    `OTHER tcp:23456 localabstract:scrcpy_${session.scid}`,
+  ].join('\n');
+  const unrelated = state.forward;
+  const abort = new AbortController();
+  const started = session.start(abort.signal);
+  const allocated = await until(() => state.calls.find(call => commandStage(call) === 'allocate'));
+  abort.abort();
+  assert.equal(session.child, undefined);
+  assert.deepEqual(allocated.args, ['-s', 'NEW', 'forward', 'tcp:0', `localabstract:scrcpy_${session.scid}`]);
+  release('allocate');
+  await assert.rejects(started, error => {
+    assert.equal(error.name, 'AbortError');
+    return true;
+  });
+  assert.equal(session.child, undefined);
+  assert.equal(session.port, 45678);
+  assert.equal(session.forwardMayExist, true);
+  assert.equal(session.forwardTransport, 'NEW');
+  await session.stop();
+  assert.deepEqual(state.calls.map(commandStage), ['discovery', 'identity', 'push', 'allocate', 'list', 'identity', 'remove', 'rm']);
+  assert.deepEqual(state.calls.filter(call => commandStage(call) === 'remove').map(call => call.args), [['-s', 'NEW', 'forward', '--remove', 'tcp:45678']]);
+  assert.deepEqual(state.calls.filter(call => commandStage(call) === 'rm').map(call => call.args), [['-s', 'NEW', 'shell', 'rm', '-f', session.remote]]);
+  assert.equal(state.forward, unrelated);
+  assert.equal(session.child, undefined);
+  assert.equal(session.port, 0);
+  assert.equal(session.forwardMayExist, false);
+  assert.equal(session.remoteMayExist, false);
+});
+
+test('replacement connect cannot start device work before cancelled startup and owned cleanup settle', { timeout: 15000 }, async t => {
+  const bridge = await startupBridge(t);
+  bridge.send('connect');
+  const firstPush = await until(async () => (await bridge.commands()).find(call => commandStage(call) === 'push'));
+  assert.equal(firstPush.args.at(-1).startsWith('/data/local/tmp/droiddock-'), true);
+  assert.deepEqual((await bridge.commands()).map(commandStage), ['discovery', 'identity', 'push']);
+  bridge.send('disconnect');
+  await until(async () => (await bridge.status()).message.includes('Disconnecting'));
+  bridge.send('connect');
+  assert.deepEqual((await bridge.commands()).map(commandStage), ['discovery', 'identity', 'push']);
+  await bridge.release('push');
+  const cleanup = await until(async () => (await bridge.commands()).find(call => commandStage(call) === 'rm'));
+  assert.deepEqual(cleanup.args, ['-s', 'NEW', 'shell', 'rm', '-f', firstPush.args.at(-1)]);
+  assert.deepEqual((await bridge.commands()).map(commandStage), ['discovery', 'identity', 'push', 'identity', 'rm']);
+  assert.equal((await bridge.commands()).filter(call => commandStage(call) === 'discovery').length, 1);
+  assert.equal((await bridge.commands()).some(call => commandStage(call) === 'allocate' || commandStage(call) === 'remove'), false);
+  await bridge.release('rm');
+  await until(async () => (await bridge.commands()).filter(call => commandStage(call) === 'push').length === 2);
+  assert.deepEqual((await bridge.commands()).map(commandStage), ['discovery', 'identity', 'push', 'identity', 'rm', 'discovery', 'identity', 'push']);
+  assert.equal((await bridge.commands()).some(call => commandStage(call) === 'allocate'), false);
 });

@@ -30,9 +30,25 @@ let connectionIntent = 0;
 const cleanupSessions = new Set<ScrcpySession>();
 const cleanupMessage = "Phone cleanup could not be confirmed. Restore the phone connection and select Connect to retry cleanup.";
 
+const connectingProgress = new Set([
+  "Finding the configured phone…",
+  "Preparing the phone connection…",
+  "Opening the video stream…",
+]);
+function startupTimeoutMs(): number {
+  const value = Number(process.env.DROIDDOCK_STARTUP_TIMEOUT_MS);
+  return Number.isInteger(value) && value >= 50 && value <= 120000 ? value : 35000;
+}
 function status() { return { app: "DroidDock", type: "status", state, message, device: config.deviceName, version: SCRCPY_VERSION, packets: packetCount, installationId, configurationId, handoff: true }; }
 function send(value: unknown) { if (client?.readyState === WebSocket.OPEN) client.send(JSON.stringify(value)); }
-function setState(next: State, detail: string) { state = next; message = detail; send(status()); }
+function setState(next: State, detail: string) {
+  if (state === next && message === detail) return;
+  state = next; message = detail; send(status());
+}
+function applyConnectingProgress(current: ScrcpySession, detail: string) {
+  if (session !== current || state !== "connecting" || !connectingProgress.has(detail)) return;
+  setState("connecting", detail);
+}
 async function cleanup(): Promise<void> {
   for (const old of cleanupSessions) {
     try { await old.stop(); cleanupSessions.delete(old); }
@@ -68,7 +84,7 @@ async function connect(): Promise<void> {
     if (cleanupSessions.size) { setState("error", cleanupMessage); return; }
   }
   packetCount = 0;
-  setState("connecting", "Finding your phone and opening its screen…");
+  setState("connecting", "Finding the configured phone…");
   abort = new AbortController();
   const current = new ScrcpySession(root, event => {
     if (session !== current) return;
@@ -84,9 +100,9 @@ async function connect(): Promise<void> {
       packetCount++;
       client.send(event.data);
     }
-  }, detail => { if (session === current) void stop("error", detail); });
+  }, detail => { if (session === current) void stop("error", detail); }, detail => { applyConnectingProgress(current, detail); });
   session = current;
-  startupTimer = setTimeout(() => { if (session === current) void stop("error", "Connection timed out. Check wireless debugging and reconnect."); }, 35000);
+  startupTimer = setTimeout(() => { if (session === current) void stop("error", "Connection timed out. Check wireless debugging and reconnect."); }, startupTimeoutMs());
   pending = current.start(abort.signal).catch(error => {
     if (session === current) {
       const detail = error instanceof Error ? error.message : "Could not connect to the phone. Check the phone connection and local tool installation.";

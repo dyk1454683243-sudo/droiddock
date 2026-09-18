@@ -194,6 +194,10 @@ test('browser chrome exposes names, a live status, and natural tab order on the 
   assert.match(html, /<button id="send-text"[^>]*>Send<\/button>/);
   assert.match(html, /role="group" aria-label="Phone controls"/);
   assert.match(html, /<summary class="icon-button" aria-label="Details and text input"/);
+  const emptyMessage = tagById('empty-message');
+  assert.equal(emptyMessage.attrs.role, 'status');
+  assert.equal(emptyMessage.attrs['aria-live'], 'polite');
+  assert.equal(emptyMessage.attrs['aria-atomic'], 'true');
   assert.match(html, /id="message" class="message" role="status" aria-live="polite"/);
   for (const match of html.matchAll(/<(button|summary)\b([^>]*)>/g)) {
     const attrs = attributes(match[2]);

@@ -29,23 +29,34 @@
     return state === 'connected' && hasFrame && socket?.readyState === WebSocket.OPEN;
   }
 
+  function assignText(node, text) {
+    if (!node || node.textContent === text) return;
+    node.textContent = text;
+  }
+
   function setState(next, message = '') {
     state = next;
     const labels = { idle: 'Disconnected', connecting: 'Connecting', connected: 'Connected', moved: 'Opened elsewhere', error: 'Connection error' };
-    $('state').textContent = labels[next] || next;
+    const label = labels[next] || next;
+    assignText($('state'), label);
     $('state').dataset.state = next;
     const connectionLabel = next === 'connecting' || next === 'connected' ? 'Disconnect' : 'Connect';
-    $('connect-label').textContent = connectionLabel;
+    assignText($('connect-label'), connectionLabel);
     $('connect').title = connectionLabel;
     $('connect').setAttribute('aria-label', connectionLabel);
     $('connect').dataset.connected = String(next === 'connecting' || next === 'connected');
-    $('state').title = labels[next] || next;
-    $('message').textContent = message || (next === 'connected' ? 'Focus a phone text field, then type or press Ctrl+V to paste. Tab stays in the browser. Fallback text input is available here for apps that block paste.' : 'Phone must be connected through ADB.');
+    $('state').title = label;
+    const detail = message || (next === 'connected' ? 'Focus a phone text field, then type or press Ctrl+V to paste. Tab stays in the browser. Fallback text input is available here for apps that block paste.' : 'Phone must be connected through ADB.');
+    assignText($('message'), detail);
     $('message').classList.toggle('error', next === 'error');
+    // Empty-state copy is the connecting live region. Avoid a second announcement from the details panel.
+    $('message').setAttribute('aria-live', hasFrame ? 'polite' : 'off');
     updateControls();
     if (!hasFrame) {
-      $('empty-title').textContent = next === 'connecting' || next === 'connected' ? 'Connecting to your phone…' : next === 'moved' ? 'Phone opened elsewhere.' : next === 'error' ? 'The phone is unavailable.' : 'Your phone, within reach.';
-      $('empty-message').textContent = message || (next === 'connecting' || next === 'connected' ? 'Waiting for the live screen.' : 'Connect to see and control your Android phone here.');
+      const title = next === 'connecting' || next === 'connected' ? 'Connecting to your phone…' : next === 'moved' ? 'Phone opened elsewhere.' : next === 'error' ? 'The phone is unavailable.' : 'Your phone, within reach.';
+      const empty = message || (next === 'connecting' || next === 'connected' ? 'Waiting for the live screen.' : 'Connect to see and control your Android phone here.');
+      assignText($('empty-title'), title);
+      assignText($('empty-message'), empty);
     }
   }
 

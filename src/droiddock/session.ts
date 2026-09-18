@@ -8,6 +8,14 @@ import { runChecked } from "../process.js";
 import { config } from "./config.js";
 import { VideoParser, SCRCPY_VERSION, SERVER_SHA256, encodeControl, type VideoEvent } from "./protocol.js";
 
+export const CONNECTION_PROGRESS = {
+  findingPhone: "Finding the configured phone…",
+  preparingConnection: "Preparing the phone connection…",
+  openingStream: "Opening the video stream…",
+} as const;
+
+export type ConnectionProgressMessage = (typeof CONNECTION_PROGRESS)[keyof typeof CONNECTION_PROGRESS];
+
 export class ScrcpySession {
   private transport = "";
   private port = 0;
@@ -22,8 +30,14 @@ export class ScrcpySession {
   private readonly remote = `/data/local/tmp/droiddock-${this.scid}.jar`;
   private readonly adb = config.adb;
   private readonly serial = config.deviceSerial;
-  constructor(private root: string, private onEvent: (event: VideoEvent) => void, private onFailure: (message: string) => void) {}
+  constructor(
+    private root: string,
+    private onEvent: (event: VideoEvent) => void,
+    private onFailure: (message: string) => void,
+    private onProgress: (message: ConnectionProgressMessage) => void = () => {},
+  ) {}
   private check(signal: AbortSignal) { signal.throwIfAborted(); if (this.closed) throw new Error("Session closed."); }
+  private progress(message: ConnectionProgressMessage) { if (!this.closed) this.onProgress(message); }
   private command(args: string[], timeoutMs = 8000) { return runChecked(this.adb, ["-s", this.transport, ...args], { timeoutMs }); }
   private async findTransport(identityTimeout = 8000): Promise<string> {
     const found = await runChecked("pwsh", ["-NoProfile", "-File", join(this.root, "scripts/Find-DroidDockDevice.ps1"), "-DeviceSerial", this.serial, "-AdbPath", this.adb, "-WaitSeconds", "15"], { timeoutMs: 20000 });
@@ -49,9 +63,11 @@ export class ScrcpySession {
     const serial = this.serial;
     if (!serial || serial === "YOUR_DEVICE_SERIAL") throw new Error("Set deviceSerial in config.local.json before connecting. See README.md.");
     if (!/^[A-Za-z0-9]+$/.test(serial)) throw new Error("Invalid device serial.");
+    this.progress(CONNECTION_PROGRESS.findingPhone);
     const transport = await this.findTransport();
     this.check(signal);
     this.transport = transport;
+    this.progress(CONNECTION_PROGRESS.preparingConnection);
     // A failed push can still create a partial file, so cleanup owns it from here.
     this.remoteMayExist = true;
     await this.command(["push", vendor, this.remote]);
@@ -72,6 +88,8 @@ export class ScrcpySession {
     this.child.stdout?.resume(); this.child.stderr?.resume();
     this.child.on("error", () => { if (!this.closed) this.onFailure("Could not start the scrcpy device server."); });
     this.child.on("exit", () => { if (!this.closed && !signal.aborted) this.onFailure("Phone connection ended. Check the phone connection and reconnect."); });
+    this.check(signal);
+    this.progress(CONNECTION_PROGRESS.openingStream);
 
     // ADB accepts TCP even before the device socket is listening. The dummy byte
     // confirms a real video connection before opening the second/control socket.

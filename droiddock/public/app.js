@@ -34,7 +34,7 @@
     $('connect').setAttribute('aria-label', connectionLabel);
     $('connect').dataset.connected = String(next === 'connecting' || next === 'connected');
     $('state').title = labels[next] || next;
-    $('message').textContent = message || (next === 'connected' ? 'Click a phone text field, then type or press Ctrl+V to paste. Fallback text input is available here for apps that block paste.' : 'Phone must be connected through ADB.');
+    $('message').textContent = message || (next === 'connected' ? 'Focus a phone text field, then type or press Ctrl+V to paste. Tab stays in the browser. Fallback text input is available here for apps that block paste.' : 'Phone must be connected through ADB.');
     $('message').classList.toggle('error', next === 'error');
     updateControls();
     if (!hasFrame) {
@@ -314,11 +314,25 @@
       $('message').classList.remove('error');
     }
   });
+  function closeMoreControls() {
+    const panel = $('more-controls');
+    if (!panel.open) return false;
+    panel.open = false;
+    panel.querySelector('summary').focus();
+    return true;
+  }
   canvas.addEventListener('keydown', (event) => {
-    if (!canControl() || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
-    const key = keyboardKeys[event.key];
+    if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
     // Keep normal Tab navigation available; use text entry for tab characters.
     if (event.key === 'Tab') return;
+    // Dismiss the details overlay first so Escape does not send Android Back
+    // while the panel is covering the screen.
+    if (event.key === 'Escape' && closeMoreControls()) {
+      event.preventDefault();
+      return;
+    }
+    if (!canControl()) return;
+    const key = keyboardKeys[event.key];
     if (key) { event.preventDefault(); send({ type: 'key', key }); }
     else if (event.key.length === 1) { event.preventDefault(); send({ type: 'text', text: event.key }); }
   });
@@ -338,8 +352,9 @@
   document.addEventListener('pointerdown', (event) => {
     if (!$('more-controls').contains(event.target)) $('more-controls').open = false;
   });
-  $('more-controls').addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') { $('more-controls').open = false; $('more-controls').querySelector('summary').focus(); }
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (closeMoreControls()) event.preventDefault();
   });
   new MutationObserver(() => {
     const summary = $('more-controls').querySelector('summary');

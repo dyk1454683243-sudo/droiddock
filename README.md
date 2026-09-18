@@ -38,7 +38,7 @@ Set this up — https://github.com/hooware-ai/droiddock
 
 - Tap, drag, long-press, and scroll directly on the phone video.
 - Use Back, Home, Recents, volume, and power controls in the side rail.
-- Focus the screen for keyboard input, including Backspace, Enter, and arrows. Tab navigation and browser shortcuts remain in the browser.
+- Focus the screen for keyboard input, including Backspace, Enter, and arrows. Tab navigation and browser shortcuts remain in the browser. Press **Escape** to close the details panel; with that panel closed and the screen focused, Escape sends Back to the phone.
 - Press **Ctrl+V** over the focused phone screen to paste plain text. Unicode, emoji, and multiline text are supported when the Android app accepts them, up to 64 KiB of UTF-8 text. Paste changes the phone clipboard; images and files are not supported.
 - Open the three-dot panel for device details and fallback text input. That input uses scrcpy text injection, supports ASCII and some accented letters, and is limited to 300 UTF-8 bytes per send.
 - Click **Connect** in another DroidDock tab to move control there. The previous tab shows **Phone opened elsewhere** and becomes inactive. Handoff briefly reconnects the stream.
@@ -65,7 +65,7 @@ npm ci --ignore-scripts
 npm run verify
 ```
 
-`npm test` uses built output, so build first. The suite covers protocol framing, structured controls, HTTP/WebSocket boundaries, ownership handoff, setup, diagnostics, and lifecycle helpers. Linux and Windows CI run offline checks; they do not establish Linux host support or live Android compatibility. Windows phone/video checks are separate and require an authorized device. The [compatibility notes](docs/COMPATIBILITY.md) record that coverage.
+`npm test` uses built output, so build first. The suite covers protocol framing, structured controls, HTTP/WebSocket boundaries, ownership handoff, setup, diagnostics, lifecycle helpers, and keyboard/focus accessibility of the browser chrome. Linux and Windows CI run offline checks; they do not establish Linux host support or live Android compatibility. Windows phone/video checks are separate and require an authorized device. The [compatibility notes](docs/COMPATIBILITY.md) record that coverage.
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md), the [architecture](docs/ARCHITECTURE.md), and the [starter tasks](docs/ROADMAP.md#starter-tasks). AI-assisted contributions are welcome. Contributors remain responsible for accuracy, provenance, privacy, and tests; maintainers review changes before merge.
 

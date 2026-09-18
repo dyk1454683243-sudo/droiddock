@@ -22,7 +22,7 @@ These are the project's documented requirements and client checks. They describe
 
 | Area | Documented requirement | Live DroidDock evidence |
 | --- | --- | --- |
-| Host | Windows is the supported live host. Installer and discovery scripts require Windows, PowerShell 7, and Node.js 24 or newer. | Not established. Linux/macOS are not supported for live setup. |
+| Host | Windows is the supported live host. The installer starts in Windows PowerShell 5.1+ and installs or reuses Node.js 24+ and PowerShell 7 for setup/discovery. | Not established. Linux/macOS are not supported for live setup. |
 | Phone | An authorized Android phone with USB debugging. Setup selects by permanent serial and excludes watches, TVs, automotive devices, and emulators from automatic selection. | No published Android version, OEM, or connection result. |
 | USB | The documented first connection. | Not run in a published report. |
 | Wireless debugging | Android 11 or newer; pairing uses a private local ADB prompt. The wireless endpoint is not the device identity. | Not run in a published report. |

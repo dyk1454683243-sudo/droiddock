@@ -4,6 +4,8 @@ Changes are recorded here when they affect users or contributors. This document 
 
 ## Unreleased
 
+- Keyboard and focus accessibility on the browser chrome: a rail focus outline with at least 3:1 contrast on its light backgrounds and a canvas outline tested against black, a connection status live region outside the details panel, Escape that closes that panel before sending Android Back, and offline tests of names, tab order, and keyboard behavior on a synthetic screen.
+
 Initial public source distribution of DroidDock by Hooware:
 
 - Local browser video and structured Android controls through the pinned, unmodified scrcpy 4.1 server.

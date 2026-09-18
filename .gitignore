@@ -1,0 +1,15 @@
+node_modules/
+dist/
+config.local.json
+.env
+.env.*
+!.env.example
+artifacts/
+logs/
+.setup/
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

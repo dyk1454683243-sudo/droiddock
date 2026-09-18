@@ -1,0 +1,44 @@
+name: Bug report
+description: Report a reproducible DroidDock problem using sanitized evidence.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not post secrets, pairing codes, personal identifiers, device serials, network addresses, machine paths, raw logs, or screenshots of private phone screens. Use synthetic examples and generic placeholders. For vulnerabilities, use the private security reporting link instead of this form.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and read the setup/recovery guide.
+          required: true
+        - label: My report contains no secrets, personal identifiers, raw private logs, or private phone screenshots.
+          required: true
+        - label: This is not a security vulnerability report.
+          required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Repository revision/version, Windows version, Node version, browser/version, Android version, and USB or wireless. Do not include serials, account names, network addresses, or local paths.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Numbered steps using neutral test content. State the failing stage (install, discovery, stream, rendering, or input).
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: Validation and sanitized error
+      description: List checks actually run and their results. Distinguish offline tests, live packet checks, and rendered video. Share only a short reviewed error excerpt, never raw logs/config.

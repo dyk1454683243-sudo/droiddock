@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/hooware-ai/droiddock/security/advisories/new
+    about: Do not publish exploit details, secrets, or phone content in an issue.
+  - name: Setup and troubleshooting guide
+    url: https://github.com/hooware-ai/droiddock/blob/main/docs/SETUP.md
+    about: Start here for installation, phone authorization, and recovery.

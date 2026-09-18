@@ -1,0 +1,27 @@
+name: Setup or usage question
+description: Ask for help with a sanitized description of the problem.
+title: "[Question]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read docs/SETUP.md and SUPPORT.md first. Never share secrets, pairing codes, personal identifiers, serials, network addresses, local machine paths, raw logs/config, or screenshots of private phone screens. Use the private security reporting channel for vulnerabilities.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I reviewed the support guide and removed secrets, personal identifiers, and private phone screenshots.
+          required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: State what you are trying to do, the failing step, and what you have already tried.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Relevant versions and sanitized evidence
+      description: Include platform/browser/Node/Android versions when relevant. Summarize checks and a short reviewed error; omit identifying details and raw output.

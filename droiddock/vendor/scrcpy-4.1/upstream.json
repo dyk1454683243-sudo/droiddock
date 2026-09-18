@@ -1,0 +1,11 @@
+{
+  "project": "scrcpy",
+  "version": "4.1",
+  "repository": "https://github.com/Genymobile/scrcpy",
+  "release": "https://github.com/Genymobile/scrcpy/releases/tag/v4.1",
+  "license": "Apache-2.0",
+  "file": "scrcpy-server",
+  "sha256": "deacb991ed2509715160ffdc7907e47b4160eb30d1566217e9047fd5b8850cae",
+  "origin": "Unmodified server copied from the local scrcpy 4.1 installation; version verified by scrcpy --version and server handshake.",
+  "localPatches": []
+}

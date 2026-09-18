@@ -1,0 +1,31 @@
+{
+  "name": "droiddock",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Your Android phone, docked in a browser. Powered by scrcpy.",
+  "type": "module",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/hooware-ai/droiddock.git" },
+  "homepage": "https://github.com/hooware-ai/droiddock#readme",
+  "bugs": { "url": "https://github.com/hooware-ai/droiddock/issues" },
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/droiddock/server.js",
+    "droiddock": "node dist/droiddock/server.js",
+    "test": "node --test droiddock/tests/*.test.mjs",
+    "test:droiddock": "npm test",
+    "typecheck": "tsc --noEmit",
+    "check:public": "node scripts/check-public.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "check:links": "node scripts/check-links.mjs",
+    "verify": "npm run build && npm test && npm run check:public && npm run check:links",
+    "release:package": "node scripts/package-release.mjs"
+  },
+  "dependencies": { "ws": "8.21.3" },
+  "devDependencies": {
+    "@types/node": "25.9.2",
+    "@types/ws": "8.18.1",
+    "typescript": "6.0.3"
+  }
+}

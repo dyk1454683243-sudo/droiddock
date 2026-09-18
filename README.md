@@ -40,7 +40,7 @@ Set this up — https://github.com/hooware-ai/droiddock
 - Use Back, Home, Recents, volume, and power controls in the side rail.
 - Focus the screen for keyboard input, including Backspace, Enter, and arrows. Tab navigation and browser shortcuts remain in the browser. Press **Escape** to close the details panel; with that panel closed and the screen focused, Escape sends Back to the phone.
 - Press **Ctrl+V** over the focused phone screen to paste plain text. Unicode, emoji, and multiline text are supported when the Android app accepts them, up to 64 KiB of UTF-8 text. Paste changes the phone clipboard; images and files are not supported.
-- Open the three-dot panel for device details and fallback text input. That input uses scrcpy text injection, supports ASCII and some accented letters, and is limited to 300 UTF-8 bytes per send.
+- Open the three-dot panel for device details and fallback text input. That input uses scrcpy text injection, supports ASCII and some accented letters, and is limited to 300 UTF-8 bytes per send. A live `N / 300 bytes` counter uses the same UTF-8 check as Send; over-limit text stays in the field so it can be shortened.
 - Click **Connect** in another DroidDock tab to move control there. The previous tab shows **Phone opened elsewhere** and becomes inactive. Handoff briefly reconnects the stream.
 - Disconnect or close the controlling tab to release the phone session. The local service remains available for reopening.
 

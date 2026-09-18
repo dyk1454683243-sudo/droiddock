@@ -43,6 +43,24 @@
     }
   }
 
+  const TEXT_BYTE_LIMIT = 300;
+
+  function utf8ByteLength(text) {
+    return new TextEncoder().encode(typeof text === 'string' ? text : '').length;
+  }
+
+  function updateTextByteCount() {
+    const input = $('text-input');
+    const count = $('text-byte-count');
+    const bytes = utf8ByteLength(input.value);
+    const over = bytes > TEXT_BYTE_LIMIT;
+    count.textContent = over
+      ? `${bytes} / ${TEXT_BYTE_LIMIT} bytes — over limit`
+      : `${bytes} / ${TEXT_BYTE_LIMIT} bytes`;
+    count.classList.toggle('over-limit', over);
+    input.setAttribute('aria-invalid', over ? 'true' : 'false');
+  }
+
   function updateControls() {
     const disabled = !canControl();
     keyButtons.forEach((button) => { button.disabled = disabled; });
@@ -340,14 +358,19 @@
   $('text-form').addEventListener('submit', (event) => {
     event.preventDefault();
     const input = $('text-input');
-    if (new TextEncoder().encode(input.value).length > 300) {
+    if (utf8ByteLength(input.value) > TEXT_BYTE_LIMIT) {
       $('message').textContent = 'That text is too long. Send up to 300 UTF-8 bytes at a time (300 plain English characters).';
       $('message').classList.add('error');
       input.focus();
       return;
     }
-    if (input.value && send({ type: 'text', text: input.value })) input.value = '';
+    if (input.value && send({ type: 'text', text: input.value })) {
+      input.value = '';
+      updateTextByteCount();
+    }
   });
+  $('text-input').addEventListener('input', updateTextByteCount);
+  updateTextByteCount();
   $('connect').addEventListener('click', () => { if (socket) disconnect(); else connect(); });
   document.addEventListener('pointerdown', (event) => {
     if (!$('more-controls').contains(event.target)) $('more-controls').open = false;

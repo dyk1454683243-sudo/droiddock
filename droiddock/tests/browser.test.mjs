@@ -32,6 +32,7 @@ test('browser retries after an old error snapshot but displays a current connect
     MutationObserver: Observer, ResizeObserver: Observer,
     setTimeout: () => 1, clearTimeout() {},
     fetch: () => new Promise(() => {}),
+    TextEncoder,
   });
   await element('connect').handlers.click();
   const socket = sockets[0];

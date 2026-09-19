@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { createHash } from 'node:crypto';
@@ -228,12 +228,44 @@ test('phone and launch refuse legacy, missing, and saver-mismatched fingerprints
   }
 });
 
-test('detached launcher reuses the same preset and refuses a different or legacy fingerprint', { timeout: 15000 }, async () => {
+async function freePort() {
   const reservation = createServer();
   reservation.listen(0, '127.0.0.1');
   await once(reservation, 'listening');
   const port = reservation.address().port;
   await new Promise(resolve => reservation.close(resolve));
+  return port;
+}
+
+async function siblingStatusServer(port, configurationId) {
+  const child = spawn(process.execPath, ['-e', `
+    import { createServer } from 'node:http';
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({
+        app: 'DroidDock',
+        installationId: process.env.DROIDDOCK_FIXTURE_INSTALLATION,
+        state: 'idle',
+        configurationId: process.env.DROIDDOCK_FIXTURE_CONFIGURATION,
+      }));
+    });
+    server.listen(Number(process.env.DROIDDOCK_FIXTURE_PORT), '127.0.0.1', () => console.log('ready'));
+  `], {
+    windowsHide: true,
+    env: {
+      ...process.env,
+      DROIDDOCK_FIXTURE_PORT: String(port),
+      DROIDDOCK_FIXTURE_INSTALLATION: installationId,
+      DROIDDOCK_FIXTURE_CONFIGURATION: configurationId,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  await once(child.stdout, 'data');
+  return child;
+}
+
+test('detached launcher reuses the same preset and refuses a different or legacy fingerprint', { timeout: 15000 }, async () => {
+  const port = await freePort();
   const origin = `http://127.0.0.1:${port}`;
   const env = { ...process.env, DROIDDOCK_PORT: String(port), DROIDDOCK_DEVICE_SERIAL: 'TESTONLY' };
   try {
@@ -252,28 +284,25 @@ test('detached launcher reuses the same preset and refuses a different or legacy
     if ((await inspectPort(port)).kind === 'ours') await fetch(`${origin}/api/shutdown`, { method: 'POST', headers: { 'X-DroidDock': '1' } });
   }
 
-  const legacy = createServer((_request, response) => {
-    response.setHeader('Content-Type', 'application/json');
-    response.end(JSON.stringify({
-      app: 'DroidDock',
-      installationId,
-      state: 'idle',
-      configurationId: scriptQuality.legacyConfigurationFingerprint({
-        deviceSerial: 'TESTONLY',
-        adb: process.env.DROIDDOCK_ADB ?? 'adb',
-        deviceName: process.env.DROIDDOCK_DEVICE_NAME ?? 'Android phone',
-        port,
-      }),
-    }));
+  const legacyPort = await freePort();
+  const legacyId = scriptQuality.legacyConfigurationFingerprint({
+    deviceSerial: 'TESTONLY',
+    adb: process.env.DROIDDOCK_ADB ?? 'adb',
+    deviceName: process.env.DROIDDOCK_DEVICE_NAME ?? 'Android phone',
+    port: legacyPort,
   });
-  legacy.listen(port, '127.0.0.1');
-  await once(legacy, 'listening');
+  const legacy = await siblingStatusServer(legacyPort, legacyId);
   try {
-    const result = spawnSync(process.execPath, ['scripts/launch.mjs'], { encoding: 'utf8', env, timeout: 5000, windowsHide: true });
-    assert.equal(result.status, 1);
+    assert.equal((await inspectPort(legacyPort)).kind, 'ours');
+    const result = spawnSync(process.execPath, ['scripts/launch.mjs'], {
+      encoding: 'utf8', timeout: 5000, windowsHide: true,
+      env: { ...process.env, DROIDDOCK_PORT: String(legacyPort), DROIDDOCK_DEVICE_SERIAL: 'TESTONLY' },
+    });
+    assert.equal(result.status, 1, result.stderr);
     assert.match(result.stderr, /different configuration/);
-    assert.equal((await inspectPort(port)).kind, 'ours');
+    assert.equal((await inspectPort(legacyPort)).kind, 'ours');
   } finally {
-    await new Promise(resolve => legacy.close(resolve));
+    legacy.kill();
+    await once(legacy, 'exit').catch(() => {});
   }
 });

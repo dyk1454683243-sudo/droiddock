@@ -4,6 +4,7 @@ Changes are recorded here when they affect users or contributors. This document 
 
 ## Unreleased
 
+- In-app Help panel on the side rail documenting current keyboard, pointer, paste, and fallback-text behavior, including focus requirements, Escape/Back, and byte limits. Help is static, usable while disconnected, restores focus to its trigger, and does not send phone input.
 - Manual, masked phone PIN entry using standard Android digit key events, with separate Backspace and Enter controls, no automatic submission or retry, and clearing on send, panel closure, focus loss and session loss. Protected-screen visibility and remote biometric authentication remain unsupported.
 
 - Connection progress reports the current startup stage (finding the phone, preparing the connection, opening the video stream) without percentages or time estimates. Messages stay sanitized, cancelled or replaced sessions cannot overwrite a newer status, and browser input stays gated until a frame renders.

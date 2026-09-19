@@ -63,3 +63,8 @@ h2{font-size:18px;font-weight:600;letter-spacing:-.3px;margin:0 0 9px}
 .pin-controls{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
 .pin-controls>summary{cursor:pointer;font-size:13px;font-weight:600}
 .pin-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.help-panel h2{font-size:15px;margin:0}
+.help-panel h3{font-size:12px;font-weight:600;letter-spacing:0;margin:4px 0 0;color:var(--slate)}
+.help-panel ul{margin:0;padding-left:1.15em}
+.help-panel li{font-size:11px;line-height:1.45;color:var(--muted)}
+.help-panel #close-help{align-self:flex-start}

@@ -25,7 +25,7 @@ async function fixture(t, implementation) {
   const root = await mkdtemp(join(base, 'security-test-'));
   const folder = join(root, 'dist/droiddock');
   await mkdir(folder, { recursive: true });
-  for (const name of ['server.js', 'config.js', 'protocol.js']) await copyFile(join('dist/droiddock', name), join(folder, name));
+  for (const name of ['server.js', 'config.js', 'protocol.js', 'video-quality.js']) await copyFile(join('dist/droiddock', name), join(folder, name));
   await copyFile('dist/process.js', join(root, 'dist/process.js'));
   await writeFile(join(folder, 'session.js'), implementation);
   const reservation = createServer();
@@ -251,7 +251,7 @@ async function sessionFixture(t, { vendor = false } = {}) {
   const root = await mkdtemp(join(base, 'cleanup-test-'));
   const folder = join(root, 'dist/droiddock');
   await mkdir(folder, { recursive: true });
-  for (const name of ['session.js', 'protocol.js']) await copyFile(join('dist/droiddock', name), join(folder, name));
+  for (const name of ['session.js', 'protocol.js', 'video-quality.js']) await copyFile(join('dist/droiddock', name), join(folder, name));
   await writeFile(join(folder, 'config.js'), `export const config = { adb:'SYNTHETIC_ADB', deviceSerial:'SYNTHETICPHONE' };`);
   await writeFile(join(root, 'dist/process.js'), syntheticProcessModule());
   if (vendor) await installVendor(root);
@@ -278,7 +278,7 @@ async function startupBridge(t) {
   const root = await mkdtemp(join(base, 'startup-cancel-'));
   const folder = join(root, 'dist/droiddock');
   await mkdir(folder, { recursive: true });
-  for (const name of ['server.js', 'session.js', 'config.js', 'protocol.js']) {
+  for (const name of ['server.js', 'session.js', 'config.js', 'protocol.js', 'video-quality.js']) {
     await copyFile(join('dist/droiddock', name), join(folder, name));
   }
   await writeFile(join(root, 'dist/process.js'), syntheticProcessModule({
@@ -431,6 +431,7 @@ test('missing vendor errors are redacted and startup before push owns no device 
 test('malformed configuration never retains a parser cause containing private text', async t => {
   const { root, folder } = await sessionFixture(t);
   await copyFile('dist/droiddock/config.js', join(folder, 'invalid-config.js'));
+  await copyFile('dist/droiddock/video-quality.js', join(folder, 'video-quality.js'));
   await writeFile(join(root, 'config.local.json'), '{"SYNTHETIC_PRIVATE_CONFIGURATION" broken');
   await assert.rejects(import(pathToFileURL(join(folder, 'invalid-config.js'))), error => {
     assert.match(error.message, /Invalid config.local.json/);

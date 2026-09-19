@@ -7,6 +7,24 @@ import { setTimeout as delay } from "node:timers/promises";
 import { runChecked } from "../process.js";
 import { config } from "./config.js";
 import { VideoParser, SCRCPY_VERSION, SERVER_SHA256, encodeControl, type VideoEvent } from "./protocol.js";
+import { resolveVideoQuality, scrcpyVideoArgs, type VideoSettings } from "./video-quality.js";
+
+const videoSettings = (): VideoSettings => config.video ?? resolveVideoQuality(undefined);
+
+export function scrcpyServerArgs(scid: string, video = videoSettings()): string[] {
+  return [
+    `scid=${scid}`, "tunnel_forward=true", "audio=false", "control=true", "video_codec=h264",
+    ...scrcpyVideoArgs(video),
+    "send_device_meta=false", "clipboard_autosync=false", "stay_awake=false", "cleanup=true", "log_level=warn",
+  ];
+}
+
+export function deviceServerCommand(adb: string, transport: string, remote: string, scid: string, video = videoSettings()) {
+  return {
+    file: adb,
+    args: ["-s", transport, "shell", `CLASSPATH=${remote}`, "app_process", "/", "com.genymobile.scrcpy.Server", SCRCPY_VERSION, ...scrcpyServerArgs(scid, video)],
+  };
+}
 
 export const CONNECTION_PROGRESS = {
   findingPhone: "Finding the configured phone…",
@@ -80,9 +98,8 @@ export class ScrcpySession {
     this.port = Number(forwarded.stdout.trim());
     if (!Number.isInteger(this.port) || this.port < 1 || this.port > 65535) throw new Error("ADB did not allocate a tunnel port.");
     this.check(signal);
-    this.child = spawn(this.adb, ["-s", this.transport, "shell", `CLASSPATH=${this.remote}`, "app_process", "/", "com.genymobile.scrcpy.Server", SCRCPY_VERSION,
-      `scid=${this.scid}`, "tunnel_forward=true", "audio=false", "control=true", "video_codec=h264", "max_size=1280", "max_fps=60", "video_bit_rate=6000000",
-      "send_device_meta=false", "clipboard_autosync=false", "stay_awake=false", "cleanup=true", "log_level=warn"], { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+    const launched = deviceServerCommand(this.adb, this.transport, this.remote, this.scid);
+    this.child = spawn(launched.file, launched.args, { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
     // Vendor output can contain private device details. Drain it without storing
     // it or copying it into browser status messages.
     this.child.stdout?.resume(); this.child.stderr?.resume();

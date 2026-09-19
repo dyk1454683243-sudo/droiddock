@@ -6,6 +6,7 @@ import { once } from 'node:events';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
+import { configurationFingerprint, configurationFingerprintFromConfig, resolveVideoQualityFromSources, sourceHasField } from './video-quality.mjs';
 
 const projectRoot = fileURLToPath(new URL('../', import.meta.url));
 
@@ -21,12 +22,24 @@ export async function loadConfig(root, env = process.env) {
     if (error.code === 'ENOENT') present = false;
     else throw new Error('Fix config.local.json: it must contain a JSON object with string deviceSerial, deviceName and adb fields.');
   }
+  const video = resolveVideoQualityFromSources(env, present ? local : {});
   const config = {
     deviceSerial: env.DROIDDOCK_DEVICE_SERIAL ?? local.deviceSerial ?? '',
     deviceName: env.DROIDDOCK_DEVICE_NAME ?? local.deviceName ?? 'Android phone',
     adb: env.DROIDDOCK_ADB ?? local.adb ?? 'adb',
     port: Number(env.DROIDDOCK_PORT ?? local.port ?? 3210),
+    videoQuality: video.name,
+    video,
   };
+  config.configurationId = configurationFingerprint({
+    deviceSerial: config.deviceSerial,
+    adb: config.adb,
+    deviceName: config.deviceName,
+    port: config.port,
+    maxSize: video.maxSize,
+    maxFps: video.maxFps,
+    videoBitRate: video.videoBitRate,
+  });
   if (!config.deviceSerial || config.deviceSerial === 'YOUR_DEVICE_SERIAL' || !/^[A-Za-z0-9]+$/.test(config.deviceSerial)) {
     throw new Error('Set deviceSerial in config.local.json or DROIDDOCK_DEVICE_SERIAL to the permanent ro.serialno value; see README.md.');
   }
@@ -36,8 +49,8 @@ export async function loadConfig(root, env = process.env) {
   }
   const sources = Object.fromEntries([
     ['deviceSerial', 'DROIDDOCK_DEVICE_SERIAL'], ['deviceName', 'DROIDDOCK_DEVICE_NAME'],
-    ['adb', 'DROIDDOCK_ADB'], ['port', 'DROIDDOCK_PORT'],
-  ].map(([field, name]) => [field, env[name] !== undefined ? 'environment' : local[field] !== undefined ? 'config.local.json' : 'default']));
+    ['adb', 'DROIDDOCK_ADB'], ['port', 'DROIDDOCK_PORT'], ['videoQuality', 'DROIDDOCK_VIDEO_QUALITY'],
+  ].map(([field, name]) => [field, sourceHasField(env, name) ? 'environment' : field === 'videoQuality' ? (sourceHasField(local, 'videoQuality') ? 'config.local.json' : 'default') : local[field] !== undefined ? 'config.local.json' : 'default']));
   return { config, details: { localConfigPresent: present, sources } };
 }
 
@@ -86,7 +99,7 @@ async function existingStatus(origin, root, config) {
     const status = await readStatus(origin);
     const installationId = createHash('sha256').update(resolve(root).toLowerCase()).digest('hex').slice(0, 16);
     if (status.installationId !== installationId) throw new Error('Different installation.');
-    const configurationId = createHash('sha256').update(JSON.stringify([config.deviceSerial, config.adb, config.deviceName, config.port])).digest('hex').slice(0, 16);
+    const configurationId = config.configurationId ?? configurationFingerprintFromConfig(config);
     if (status.configurationId !== configurationId) throw new Error('Different configuration.');
     return status;
   }
@@ -146,7 +159,7 @@ export async function verifyLive({ root = projectRoot, config, env = process.env
   const port = await temporaryPort();
   const origin = `http://127.0.0.1:${port}`;
   const child = spawn(process.execPath, [join(root, 'dist/droiddock/server.js')], {
-    cwd: root, env: { ...env, DROIDDOCK_PORT: String(port), DROIDDOCK_DEVICE_SERIAL: config.deviceSerial, DROIDDOCK_ADB: config.adb },
+    cwd: root, env: { ...env, DROIDDOCK_PORT: String(port), DROIDDOCK_DEVICE_SERIAL: config.deviceSerial, DROIDDOCK_ADB: config.adb, DROIDDOCK_VIDEO_QUALITY: config.videoQuality ?? config.video?.name ?? 'default' },
     windowsHide: true, stdio: ['ignore', 'ignore', 'ignore'],
   });
   let childError = false, ready = false, ws, result, failure;

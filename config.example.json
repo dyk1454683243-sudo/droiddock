@@ -2,5 +2,6 @@
   "deviceSerial": "YOUR_DEVICE_SERIAL",
   "deviceName": "Android phone",
   "adb": "C:\\Program Files\\SCRCPY\\adb.exe",
-  "port": 3210
+  "port": 3210,
+  "videoQuality": "default"
 }

@@ -2,16 +2,16 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, openSync, closeSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { config } from '../dist/droiddock/config.js';
-import { createHash } from 'node:crypto';
 import { root, installationId, inspectPort } from './setup.mjs';
+import { configurationFingerprintFromConfig } from './video-quality.mjs';
 
 try {
+  const { config } = await import('../dist/droiddock/config.js');
   const port = config.port;
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid DroidDock port.');
   const current = await inspectPort(port);
   if (current.kind === 'occupied') throw new Error('Port occupied by another service or checkout. Run Install-DroidDock.ps1 to choose a free port.');
-  const configurationId = createHash('sha256').update(JSON.stringify([config.deviceSerial, config.adb, config.deviceName, config.port])).digest('hex').slice(0, 16);
+  const configurationId = configurationFingerprintFromConfig(config);
   if (current.kind === 'ours' && current.status.configurationId !== configurationId) throw new Error('Running DroidDock has different configuration. Close its phone tab and rerun Install-DroidDock.ps1.');
   if (current.kind === 'free') {
     const logRoot = join(process.env.LOCALAPPDATA ?? join(root, '.setup'), 'DroidDock', installationId);

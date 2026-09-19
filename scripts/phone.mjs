@@ -1,8 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { root, installationId, inspectPort } from './setup.mjs';
+import { configurationFingerprintFromConfig } from './video-quality.mjs';
 
 // Narrow lifecycle operations for the personal Codex plugin; no raw device commands.
 export async function phoneAction(action, options) {
@@ -39,7 +39,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     if (process.argv.length !== 3) throw new Error('Usage: node scripts/phone.mjs open|status|disconnect');
     const { config } = await import('../dist/droiddock/config.js');
-    const configurationId = createHash('sha256').update(JSON.stringify([config.deviceSerial, config.adb, config.deviceName, config.port])).digest('hex').slice(0, 16);
+    const configurationId = configurationFingerprintFromConfig(config);
     const result = await phoneAction(process.argv[2], {
       port: config.port, configurationId,
       inspect: port => inspectPort(port, installationId),

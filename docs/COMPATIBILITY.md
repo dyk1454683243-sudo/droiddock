@@ -31,7 +31,7 @@ These are the project's documented requirements and client checks. They describe
 | Other browsers | Firefox, Safari, and non-Chromium engines are not a documented live target. | Not run; do not assume support or incompatibility. |
 | Codex panel | Optional. The same local page can open in a supported local Codex browser panel. | Not a substitute for a named standalone-browser result. |
 
-Current encoder settings are a maximum dimension of 1280 pixels, up to 60 fps, and 6 Mbps H.264. Those are session settings, not a performance or compatibility guarantee.
+Default encoder settings are a maximum dimension of 1280 pixels, up to 60 fps, and 6 Mbps H.264. The optional `saver` preset uses 800 pixels, 30 fps, and 2 Mbps. Those are session settings, not a performance or compatibility guarantee. A lower saver frame-rate cap is an intended tradeoff, not a default-performance regression.
 
 ## Automated checks
 

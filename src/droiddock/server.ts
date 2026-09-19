@@ -7,10 +7,11 @@ import { WebSocket, WebSocketServer } from "ws";
 import { ScrcpySession } from "./session.js";
 import { SCRCPY_VERSION } from "./protocol.js";
 import { config } from "./config.js";
+import { configurationFingerprintFromConfig } from "./video-quality.js";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const installationId = createHash("sha256").update(resolve(root).toLowerCase()).digest("hex").slice(0, 16);
-const configurationId = createHash("sha256").update(JSON.stringify([config.deviceSerial, config.adb, config.deviceName, config.port])).digest("hex").slice(0, 16);
+const configurationId = configurationFingerprintFromConfig(config);
 // Both src/droiddock and dist/droiddock are two directories below the root.
 const port = config.port;
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("DROIDDOCK_PORT must be an integer from 1024 to 65535.");

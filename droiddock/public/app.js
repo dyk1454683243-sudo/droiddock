@@ -142,6 +142,10 @@
   }
 
   function holdEscapeFromSendingBack(event) {
+    if (closeHelpControls()) {
+      event.preventDefault();
+      return true;
+    }
     if (closeMoreControls()) {
       event.preventDefault();
       return true;
@@ -413,6 +417,13 @@
       $('message').classList.remove('error');
     }
   });
+  function closeHelpControls() {
+    const panel = $('help-controls');
+    if (!panel?.open) return false;
+    panel.open = false;
+    panel.querySelector?.('summary')?.focus();
+    return true;
+  }
   function closeMoreControls() {
     const panel = $('more-controls');
     if (!panel.open) return false;
@@ -425,7 +436,7 @@
     if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
     // Keep normal Tab navigation available; use text entry for tab characters.
     if (event.key === 'Tab') return;
-    // Details first, then a fullscreen exit, before Escape can send Android Back.
+    // Help, then Details, then a fullscreen exit, before Escape can send Android Back.
     if (event.key === 'Escape' && holdEscapeFromSendingBack(event)) return;
     if (!canControl()) return;
     const key = keyboardKeys[event.key];
@@ -482,13 +493,28 @@
     $('pin-input').addEventListener(event, (e) => e.preventDefault());
   }
   for (const id of ['more-controls', 'pin-controls']) {
-    $(id).addEventListener('toggle', () => { if (!$(id).open) clearPin(); });
+    $(id).addEventListener('toggle', () => {
+      if (!$(id).open) clearPin();
+      if (id === 'more-controls' && $(id).open && $('help-controls').open) $('help-controls').open = false;
+    });
   }
+  $('help-controls').addEventListener('toggle', () => {
+    if ($('help-controls').open && $('more-controls').open) {
+      $('more-controls').open = false;
+      clearPin();
+    }
+  });
+  $('close-help').addEventListener('click', (event) => {
+    event.preventDefault();
+    closeHelpControls();
+  });
   window.addEventListener('blur', clearPin);
   window.addEventListener('pagehide', clearPin);
   $('connect').addEventListener('click', () => { if (socket) disconnect(); else connect(); });
   document.addEventListener('pointerdown', (event) => {
     if (!$('more-controls').contains(event.target)) { $('more-controls').open = false; clearPin(); }
+    const help = $('help-controls');
+    if (help && typeof help.contains === 'function' && !help.contains(event.target)) help.open = false;
   });
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape' || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;

@@ -68,7 +68,7 @@ npm ci --ignore-scripts
 npm run verify
 ```
 
-`npm test` uses built output, so build first. The suite covers protocol framing, structured controls, HTTP/WebSocket boundaries, ownership handoff, setup, diagnostics, lifecycle helpers, and keyboard/focus accessibility of the browser chrome. Linux and Windows CI run offline checks; they do not establish Linux host support or live Android compatibility. Windows phone/video checks are separate and require an authorized device. The [compatibility notes](docs/COMPATIBILITY.md) record that coverage.
+`npm test` uses built output, so build first. The suite covers protocol framing, structured controls, HTTP/WebSocket boundaries, ownership handoff, setup, diagnostics, lifecycle helpers, and keyboard/focus accessibility of the browser chrome. Linux and Windows CI run those offline checks; they do not establish Linux host support or live Android compatibility. An optional Chromium smoke job (`npm run test:smoke`) drives the real browser UI against a local synthetic fixture. That fixture is labeled generated evidence and does not use a phone, ADB, or real H.264. Windows phone/video checks are separate and require an authorized device. The [compatibility notes](docs/COMPATIBILITY.md) record that coverage.
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md), the [architecture](docs/ARCHITECTURE.md), and the [starter tasks](docs/ROADMAP.md#starter-tasks). AI-assisted contributions are welcome. Contributors remain responsible for accuracy, provenance, privacy, and tests; maintainers review changes before merge.
 

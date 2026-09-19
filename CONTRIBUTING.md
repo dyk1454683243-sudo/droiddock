@@ -15,7 +15,7 @@ npm ci --ignore-scripts
 npm run verify
 ```
 
-Tests import built output; rebuild after TypeScript changes. `npm run test:droiddock` is an alias for `npm test`. The offline suite does not require an Android device. Windows is the supported live host; follow [setup](docs/SETUP.md) for ADB, PowerShell, and phone authorization. Passing offline tests on Linux does not validate a live Linux installation.
+Tests import built output; rebuild after TypeScript changes. `npm run test:droiddock` is an alias for `npm test`. The offline suite does not require an Android device or a browser. After `npx playwright install chromium`, `npm run test:smoke` runs a small Chromium suite against a local synthetic fixture. It is not part of `npm run verify`, does not start ADB, and must not be described as Android or H.264 evidence. Windows is the supported live host; follow [setup](docs/SETUP.md) for ADB, PowerShell, and phone authorization. Passing offline tests on Linux does not validate a live Linux installation.
 
 Keep dependencies locked. Never commit `config.local.json`, `.env` files, logs, pairing codes, device serials, local usernames/paths, or private phone screenshots. Use synthetic fixtures and generic placeholder values. Review your full diff, including newly added files, before pushing.
 

@@ -142,6 +142,7 @@
   }
 
   function holdEscapeFromSendingBack(event) {
+    if (event.defaultPrevented) return true;
     if (closeHelpControls()) {
       event.preventDefault();
       return true;
@@ -517,7 +518,7 @@
     if (help && typeof help.contains === 'function' && !help.contains(event.target)) help.open = false;
   });
   document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape' || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.key !== 'Escape' || event.isComposing || event.ctrlKey || event.metaKey || event.altKey || event.defaultPrevented) return;
     holdEscapeFromSendingBack(event);
   });
   if (fullscreenButton) {

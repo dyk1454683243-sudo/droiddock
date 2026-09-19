@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { mkdir, writeFile, stat } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { SYNTHETIC_DEVICE, SYNTHETIC_EVIDENCE, SYNTHETIC_FRAME_LABEL, startSmokeFixture } from './smoke-fixture.mjs';
 
-const root = dirname(fileURLToPath(new URL('..', import.meta.url)));
+const root = fileURLToPath(new URL('..', import.meta.url));
 const artifactDir = join(root, 'artifacts/smoke');
 const WAIT_MS = 4000;
 
@@ -39,17 +39,27 @@ async function openPage(context, origin) {
   return page;
 }
 
-async function connect(page) {
+async function connect(page, fixture) {
   await page.locator('#connect').click();
   await until(async () => (await page.locator('#state').getAttribute('data-state')) === 'connecting', 'Connecting state');
+  if (fixture) await fixture.waitForInbound((message) => message.type === 'connect', 'connect command');
 }
 
 async function waitConnected(page) {
   await until(async () => {
     const state = await page.locator('#state').getAttribute('data-state');
+    if (state === 'error') {
+      throw new Error(`Synthetic connect failed: ${await page.locator('#empty-message').innerText()}`);
+    }
     const hidden = await page.locator('#screen').evaluate((node) => node.hidden);
     return state === 'connected' && hidden === false;
   }, 'synthetic connected frame');
+}
+
+async function connectWithFrame(page, fixture) {
+  await connect(page, fixture);
+  fixture.deliverSyntheticFrame();
+  await waitConnected(page);
 }
 
 async function phoneKeysDisabled(page) {
@@ -75,14 +85,25 @@ async function canvasRect(page) {
 async function pointerSequence(page, fixture, { clientX, clientY, moveX, moveY, cancel = false }) {
   const before = fixture.inbound().length;
   await page.evaluate(() => {
+    window.__droiddockSmokePointers = [];
+    if (window.__droiddockSmokePointerBound) return;
+    window.__droiddockSmokePointerBound = true;
+    const record = (event) => {
+      window.__droiddockSmokePointers.push({
+        type: event.type, pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY,
+      });
+    };
     const canvas = document.getElementById('screen');
-    canvas.addEventListener('pointerdown', (event) => { window.__droiddockSmokePointerId = event.pointerId; }, { once: true });
+    canvas.addEventListener('pointerdown', record);
+    canvas.addEventListener('pointermove', record);
+    canvas.addEventListener('pointerup', record);
+    canvas.addEventListener('pointercancel', record);
   });
   await page.mouse.move(clientX, clientY);
   await page.mouse.down();
   await fixture.waitForInbound((message, index) => index >= before && message.type === 'touch' && message.action === 0, 'pointer down');
   if (cancel) {
-    const pointerId = await page.evaluate(() => window.__droiddockSmokePointerId);
+    const pointerId = await page.evaluate(() => window.__droiddockSmokePointers.find((item) => item.type === 'pointerdown')?.pointerId);
     await page.evaluate((id) => {
       document.getElementById('screen').dispatchEvent(new PointerEvent('pointercancel', {
         pointerId: id, bubbles: true, cancelable: true, pointerType: 'mouse',
@@ -90,7 +111,7 @@ async function pointerSequence(page, fixture, { clientX, clientY, moveX, moveY, 
     }, pointerId);
     await fixture.waitForInbound((message, index) => index >= before && message.type === 'touch' && message.action === 1, 'pointer cancel');
     await page.mouse.up();
-    return;
+    return page.evaluate(() => window.__droiddockSmokePointers);
   }
   if (moveX !== undefined) {
     await page.mouse.move(moveX, moveY);
@@ -99,6 +120,7 @@ async function pointerSequence(page, fixture, { clientX, clientY, moveX, moveY, 
   }
   await page.mouse.up();
   await fixture.waitForInbound((message, index) => index >= before && message.type === 'touch' && message.action === 1, 'pointer up');
+  return page.evaluate(() => window.__droiddockSmokePointers);
 }
 
 async function run() {
@@ -130,6 +152,8 @@ async function run() {
       viewport: { width: 1280, height: 800 },
       deviceScaleFactor: 1,
     });
+    context.setDefaultTimeout(WAIT_MS);
+    context.setDefaultNavigationTimeout(WAIT_MS);
     // Traces stay off. A failure screenshot is written only for the synthetic fixture.
 
     async function test(name, body) {
@@ -152,10 +176,9 @@ async function run() {
         assert.equal(await page.locator('#text-input').isDisabled(), true);
         assert.equal(await page.locator('#screen').evaluate((node) => node.hidden), true);
 
-        await connect(page);
+        await connect(page, fixture);
         assert.equal(await page.locator('#connect').getAttribute('aria-label'), 'Disconnect');
         assert.equal(await phoneKeysDisabled(page), true);
-        await fixture.waitForInbound((message) => message.type === 'connect', 'connect command');
 
         fixture.emitError('Synthetic fixture error. Not a phone failure.');
         await until(async () => (await page.locator('#state').getAttribute('data-state')) === 'error', 'error state');
@@ -172,12 +195,10 @@ async function run() {
       const first = await openPage(context, fixture.origin);
       const second = await openPage(context, fixture.origin);
       try {
-        await connect(first);
-        fixture.deliverSyntheticFrame();
-        await waitConnected(first);
+        await connectWithFrame(first, fixture);
         assert.equal(await phoneKeysDisabled(first), false);
 
-        await connect(second);
+        await connect(second, fixture);
         await until(async () => (await first.locator('#state').getAttribute('data-state')) === 'moved', 'first tab moved');
         assert.match(await first.locator('#empty-title').innerText(), /Phone opened elsewhere/);
         assert.equal(await phoneKeysDisabled(first), true);
@@ -194,13 +215,10 @@ async function run() {
     await test('Keyboard focus, Tab order, and Details Escape do not send Android Back', async () => {
       const page = await openPage(context, fixture.origin);
       try {
-        await connect(page);
-        assert.equal(await phoneKeysDisabled(page), true);
-        fixture.deliverSyntheticFrame();
-        await waitConnected(page);
+        await connectWithFrame(page, fixture);
         assert.equal(await page.evaluate(() => window.__DROIDDOCK_STREAM_EVIDENCE__), SYNTHETIC_EVIDENCE);
-        assert.match(await page.locator('#device').innerText(), new RegExp(SYNTHETIC_DEVICE.replace(/[()]/g, '\\$&')));
-        assert.equal(await page.locator('#resolution').innerText(), '720 × 1280');
+        assert.match(await page.locator('#device').evaluate((node) => node.textContent), new RegExp(SYNTHETIC_DEVICE.replace(/[()]/g, '\\$&')));
+        assert.equal(await page.locator('#resolution').evaluate((node) => node.textContent), '720 × 1280');
         assert.equal(await phoneKeysDisabled(page), false);
 
         await mkdir(artifactDir, { recursive: true });
@@ -251,9 +269,7 @@ async function run() {
     await test('Pointer down, move, up, and cancel use real events and normalized coordinates', async () => {
       const page = await openPage(context, fixture.origin);
       try {
-        await connect(page);
-        fixture.deliverSyntheticFrame();
-        await waitConnected(page);
+        await connectWithFrame(page, fixture);
 
         const firstRect = await canvasRect(page);
         assert.ok(firstRect.width > 0 && firstRect.height > 0);
@@ -261,12 +277,14 @@ async function run() {
         const downY = firstRect.top + firstRect.height * 0.25;
         const moveX = firstRect.left + firstRect.width * 0.75;
         const moveY = firstRect.top + firstRect.height * 0.6;
-        await pointerSequence(page, fixture, { clientX: downX, clientY: downY, moveX, moveY });
+        const firstEvents = await pointerSequence(page, fixture, { clientX: downX, clientY: downY, moveX, moveY });
         const first = fixture.inbound().filter((message) => message.type === 'touch').slice(-3);
+        const downEvent = firstEvents.find((item) => item.type === 'pointerdown');
+        const moveEvent = firstEvents.filter((item) => item.type === 'pointermove').at(-1);
         assert.equal(first[0].action, 0);
-        assert.deepEqual({ x: first[0].x, y: first[0].y, width: first[0].width, height: first[0].height }, expectedTouch(firstRect, downX, downY));
+        assert.deepEqual({ x: first[0].x, y: first[0].y, width: first[0].width, height: first[0].height }, expectedTouch(firstRect, downEvent.clientX, downEvent.clientY));
         assert.equal(first[1].action, 2);
-        assert.deepEqual({ x: first[1].x, y: first[1].y, width: first[1].width, height: first[1].height }, expectedTouch(firstRect, moveX, moveY));
+        assert.deepEqual({ x: first[1].x, y: first[1].y, width: first[1].width, height: first[1].height }, expectedTouch(firstRect, moveEvent.clientX, moveEvent.clientY));
         assert.equal(first[2].action, 1);
 
         await page.setViewportSize({ width: 1600, height: 900 });
@@ -277,9 +295,10 @@ async function run() {
         const resized = await canvasRect(page);
         const tapX = resized.left + resized.width * 0.4;
         const tapY = resized.top + resized.height * 0.4;
-        await pointerSequence(page, fixture, { clientX: tapX, clientY: tapY });
+        const resizedEvents = await pointerSequence(page, fixture, { clientX: tapX, clientY: tapY });
         const resizedTouch = fixture.inbound().filter((message) => message.type === 'touch' && message.action === 0).at(-1);
-        assert.deepEqual({ x: resizedTouch.x, y: resizedTouch.y, width: resizedTouch.width, height: resizedTouch.height }, expectedTouch(resized, tapX, tapY));
+        const resizedDown = resizedEvents.find((item) => item.type === 'pointerdown');
+        assert.deepEqual({ x: resizedTouch.x, y: resizedTouch.y, width: resizedTouch.width, height: resizedTouch.height }, expectedTouch(resized, resizedDown.clientX, resizedDown.clientY));
 
         const cancelX = resized.left + resized.width * 0.5;
         const cancelY = resized.top + resized.height * 0.5;
@@ -298,9 +317,7 @@ async function run() {
     await test('Native fullscreen entry, coordinates, and Escape where the runner supports them', async () => {
       const page = await openPage(context, fixture.origin);
       try {
-        await connect(page);
-        fixture.deliverSyntheticFrame();
-        await waitConnected(page);
+        await connectWithFrame(page, fixture);
 
         const api = await page.evaluate(() => ({
           enabled: Boolean(document.fullscreenEnabled),
@@ -317,10 +334,11 @@ async function run() {
           return;
         }
 
-        await page.locator('#fullscreen').click();
-        const entered = await page.waitForFunction(() => document.fullscreenElement?.id === 'dock', { timeout: 2500 })
-          .then(() => true)
-          .catch(() => false);
+        await page.locator('#fullscreen').click({ timeout: 2000 });
+        const entered = await page.waitForFunction(
+          () => document.fullscreenElement?.id === 'dock' && document.getElementById('fullscreen')?.getAttribute('aria-pressed') === 'true',
+          { timeout: 1500 },
+        ).then(() => true).catch(() => false);
         if (!entered) {
           coverage.nativeFullscreen = 'unavailable';
           coverage.nativeFullscreenReason = 'dock.requestFullscreen did not make #dock the native fullscreen element. Fake fullscreenchange events were not used.';
@@ -328,27 +346,31 @@ async function run() {
         }
         coverage.nativeFullscreen = 'available';
         coverage.nativeFullscreenReason = 'Native Fullscreen API entered #dock.';
-        assert.equal(await page.locator('#fullscreen').getAttribute('aria-pressed'), 'true');
 
         await until(async () => (await canvasRect(page)).width > 0, 'fullscreen canvas layout');
         const fullRect = await canvasRect(page);
         const fullX = fullRect.left + fullRect.width * 0.3;
         const fullY = fullRect.top + fullRect.height * 0.3;
-        await pointerSequence(page, fixture, { clientX: fullX, clientY: fullY });
+        const fullEvents = await pointerSequence(page, fixture, { clientX: fullX, clientY: fullY });
         const fullTouch = fixture.inbound().filter((message) => message.type === 'touch' && message.action === 0).at(-1);
-        assert.deepEqual({ x: fullTouch.x, y: fullTouch.y, width: fullTouch.width, height: fullTouch.height }, expectedTouch(fullRect, fullX, fullY));
+        const fullDown = fullEvents.find((item) => item.type === 'pointerdown');
+        assert.deepEqual({ x: fullTouch.x, y: fullTouch.y, width: fullTouch.width, height: fullTouch.height }, expectedTouch(fullRect, fullDown.clientX, fullDown.clientY));
 
         const beforeEscape = fixture.inbound().length;
         await page.locator('#screen').focus();
         await page.keyboard.press('Escape');
-        const exited = await page.waitForFunction(() => document.fullscreenElement === null, { timeout: 2500 })
-          .then(() => true)
-          .catch(() => false);
+        const exited = await page.waitForFunction(
+          () => document.fullscreenElement === null && document.getElementById('fullscreen')?.getAttribute('aria-pressed') === 'false',
+          { timeout: 1000 },
+        ).then(() => true).catch(() => false);
         if (!exited) {
           coverage.nativeFullscreen = 'available';
           coverage.nativeFullscreenReason = 'Native entry succeeded; Escape did not exit fullscreen on this runner.';
-          await page.locator('#fullscreen').click();
-          await page.waitForFunction(() => document.fullscreenElement === null, { timeout: 2500 });
+          await page.evaluate(() => { void document.exitFullscreen?.(); });
+          await page.waitForFunction(
+            () => document.fullscreenElement === null && document.getElementById('fullscreen')?.getAttribute('aria-pressed') === 'false',
+            { timeout: 1500 },
+          );
         }
         assert.equal(await page.locator('#fullscreen').getAttribute('aria-pressed'), 'false');
         assert.ok(!fixture.inbound().slice(beforeEscape).some((message) => message.type === 'key' && message.key === 'back'));

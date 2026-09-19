@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { WebSocketServer } from 'ws';
@@ -10,7 +10,7 @@ export const SYNTHETIC_EVIDENCE = 'synthetic-fixture';
 export const SYNTHETIC_DECODER_MARKER = 'SyntheticVideoDecoder';
 export const SYNTHETIC_FRAME_LABEL = 'SYNTHETIC FIXTURE';
 
-const root = dirname(fileURLToPath(new URL('..', import.meta.url)));
+const root = fileURLToPath(new URL('..', import.meta.url));
 const publicDir = join(root, 'droiddock/public');
 const assets = {
   '/': ['index.html', 'text/html; charset=utf-8'],
@@ -33,7 +33,9 @@ export const SYNTHETIC_DECODER_PRELUDE = `'use strict';
     close() { this.state = 'closed'; }
     decode() {
       if (this.state !== 'configured') return;
-      const canvas = new OffscreenCanvas(720, 1280);
+      const canvas = document.createElement('canvas');
+      canvas.width = 720;
+      canvas.height = 1280;
       const context = canvas.getContext('2d', { alpha: false });
       context.fillStyle = '#102040';
       context.fillRect(0, 0, 720, 1280);
@@ -43,7 +45,7 @@ export const SYNTHETIC_DECODER_PRELUDE = `'use strict';
       context.font = '28px sans-serif';
       context.fillText('Not Android video', 36, 220);
       context.fillText('Not H.264 evidence', 36, 270);
-      this.output(new VideoFrame(canvas, { timestamp: 0, alpha: 'discard' }));
+      this.output(new VideoFrame(canvas, { timestamp: 0, codedWidth: 720, codedHeight: 1280 }));
     }
   }
   globalThis.VideoDecoder = ${SYNTHETIC_DECODER_MARKER};
@@ -92,31 +94,35 @@ export async function startSmokeFixture({ initialStatus } = {}) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'");
     res.setHeader('Referrer-Policy', 'no-referrer');
-    if (!allowedRequest(req, authority)) {
-      reply(res, 403, { error: 'Only the local DroidDock page can access this service.' });
-      return;
+    try {
+      if (!allowedRequest(req, authority)) {
+        reply(res, 403, { error: 'Only the local DroidDock page can access this service.' });
+        return;
+      }
+      const url = req.url ?? '';
+      if (url === '/api/status' && req.method === 'GET') {
+        reply(res, 200, {
+          app: 'DroidDock',
+          state: statusState.state,
+          message: statusState.message,
+          fixture: true,
+          evidence: SYNTHETIC_EVIDENCE,
+          device: SYNTHETIC_DEVICE,
+        });
+        return;
+      }
+      const asset = assets[url];
+      if (req.method !== 'GET' || !asset) {
+        reply(res, 404, { error: 'Not found.' });
+        return;
+      }
+      let content = await readFile(join(publicDir, asset[0]));
+      if (asset[0] === 'app.js') content = Buffer.from(`${SYNTHETIC_DECODER_PRELUDE}\n${content.toString('utf8')}`);
+      res.writeHead(200, { 'Content-Type': asset[1] });
+      res.end(content);
+    } catch {
+      if (!res.headersSent) reply(res, 500, { error: 'DroidDock could not complete this request.' });
     }
-    const url = req.url ?? '';
-    if (url === '/api/status' && req.method === 'GET') {
-      reply(res, 200, {
-        app: 'DroidDock',
-        state: statusState.state,
-        message: statusState.message,
-        fixture: true,
-        evidence: SYNTHETIC_EVIDENCE,
-        device: SYNTHETIC_DEVICE,
-      });
-      return;
-    }
-    const asset = assets[url];
-    if (req.method !== 'GET' || !asset) {
-      reply(res, 404, { error: 'Not found.' });
-      return;
-    }
-    let content = await readFile(join(publicDir, asset[0]));
-    if (asset[0] === 'app.js') content = Buffer.from(`${SYNTHETIC_DECODER_PRELUDE}\n${content.toString('utf8')}`);
-    res.writeHead(200, { 'Content-Type': asset[1] });
-    res.end(content);
   });
   http.requestTimeout = 10000;
   http.headersTimeout = 10000;
@@ -209,9 +215,7 @@ export async function startSmokeFixture({ initialStatus } = {}) {
       client.ws.send(videoPacket({ keyframe: true }));
     },
     reset() {
-      for (const client of clients) {
-        if (client.ws.readyState === client.ws.OPEN) client.ws.close();
-      }
+      for (const client of clients) client.ws.terminate();
       clients.length = 0;
       owner = null;
       statusState = { state: initialStatus?.state ?? 'idle', message: initialStatus?.message ?? '' };
@@ -219,6 +223,7 @@ export async function startSmokeFixture({ initialStatus } = {}) {
     async close() {
       this.reset();
       sockets.close();
+      if (typeof http.closeAllConnections === 'function') http.closeAllConnections();
       await new Promise((resolve) => http.close(resolve));
     },
   };

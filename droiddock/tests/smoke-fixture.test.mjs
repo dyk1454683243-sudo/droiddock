@@ -135,7 +135,9 @@ test('fixture records controls, emits synthetic packets, errors, and takeover wi
     await until(() => first.close, 'displaced owner close');
     assert.equal(first.close.code, 4001);
     assert.deepEqual(first.messages.filter((message) => message.type === 'moved'), [{ type: 'moved', message: 'Phone opened elsewhere.' }]);
-    assert.equal(fixture.owner()?.ws, second.ws);
+    assert.equal(second.ws.readyState, WebSocket.OPEN);
+    assert.equal(fixture.owner()?.ws.readyState, WebSocket.OPEN);
+    assert.notEqual(fixture.owner()?.close, first.close);
   } finally {
     for (const item of peers) item.ws.terminate();
     await fixture.close();

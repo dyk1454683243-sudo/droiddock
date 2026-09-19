@@ -15,6 +15,7 @@
     "droiddock": "node dist/droiddock/server.js",
     "test": "node --test droiddock/tests/*.test.mjs",
     "test:droiddock": "npm test",
+    "test:smoke": "node scripts/browser-smoke.mjs",
     "typecheck": "tsc --noEmit",
     "check:public": "node scripts/check-public.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
@@ -26,6 +27,7 @@
   "devDependencies": {
     "@types/node": "26.5.1",
     "@types/ws": "8.18.1",
+    "playwright": "1.63.0",
     "typescript": "7.0.2"
   }
 }

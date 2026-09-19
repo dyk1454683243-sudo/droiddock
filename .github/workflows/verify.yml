@@ -34,3 +34,31 @@ jobs:
       - run: npm run verify
       - run: npm audit --audit-level=high
       - run: npm run check:secrets
+
+  browser-smoke:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-fund
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      - run: npx playwright install --with-deps chromium
+      - name: Chromium smoke (synthetic fixture)
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24" npm run test:smoke
+        env:
+          DROIDDOCK_SMOKE_HEADED: '1'
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: browser-smoke-synthetic
+          path: artifacts/smoke/
+          if-no-files-found: warn
+          retention-days: 7

@@ -5,6 +5,9 @@ config.local.json
 .env.*
 !.env.example
 artifacts/
+playwright-report/
+test-results/
+blob-report/
 logs/
 .setup/
 *.log

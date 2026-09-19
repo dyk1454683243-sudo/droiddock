@@ -80,11 +80,13 @@ Omit `-OpenBrowser` to return the URL without opening the default browser. The f
 Offline development checks require Node.js but no phone:
 
 ```powershell
-npm ci
+npm ci --ignore-scripts
 npm run typecheck
 npm run build
 npm test
 ```
+
+The optional Chromium smoke suite is not part of that path. After `npx playwright install chromium`, `npm run test:smoke` drives the local page against a synthetic fixture. It does not use a phone or ADB. Treat its canvas as generated evidence, not Android or H.264 compatibility.
 
 For installation/device diagnostics on the supported Windows host:
 

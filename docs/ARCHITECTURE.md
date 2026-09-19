@@ -38,7 +38,9 @@ The phone encodes H.264. ADB forwards the session's random scrcpy socket to a dy
 | `scripts/phone.mjs` | Narrow open/status/disconnect helper for local integrations. |
 | `scripts/*.ps1` | Windows bootstrap, discovery, and entry points. |
 | `scripts/Test-DroidDock.mjs` | Baseline and opt-in live diagnostics. |
-| `droiddock/tests/` | Offline protocol, boundary, ownership, setup, lifecycle, diagnostic, keyboard/focus, fullscreen, and startup-progress tests. |
+| `scripts/smoke-fixture.mjs` | Local HTTP/WebSocket synthetic fixture for Chromium smoke tests. No phone, discovery, or ADB. |
+| `scripts/browser-smoke.mjs` | Optional Playwright Chromium smoke runner. Development-only. |
+| `droiddock/tests/` | Offline protocol, boundary, ownership, setup, lifecycle, diagnostic, keyboard/focus, fullscreen, startup-progress, and fixture tests. |
 
 ## Ownership and lifecycle
 
@@ -71,4 +73,4 @@ Never silently select whichever scrcpy server happens to be installed on the hos
 
 ## Evidence boundaries
 
-Offline tests use synthetic protocol data, local HTTP/WebSocket interactions, and injected/mocked device dependencies. They establish the tested behaviors, not real phone/browser compatibility. Live diagnostics establish metadata/frame-packet evidence; actual rendered video needs browser inspection. Report those layers separately when validating a change. [COMPATIBILITY.md](COMPATIBILITY.md) is the published record of those layers.
+Offline tests use synthetic protocol data, local HTTP/WebSocket interactions, and injected/mocked device dependencies. They establish the tested behaviors, not real phone/browser compatibility. The optional Chromium smoke suite uses a labeled synthetic fixture and a fake decoder; it can show real focus, pointer, and fullscreen behavior in that fixture, not Android video or H.264 compatibility. Live diagnostics establish metadata/frame-packet evidence; actual rendered phone video needs browser inspection of a live session. Report those layers separately when validating a change. [COMPATIBILITY.md](COMPATIBILITY.md) is the published record of those layers.

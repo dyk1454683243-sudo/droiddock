@@ -11,6 +11,7 @@ Keep these layers separate. A later layer does not inherit a pass from an earlie
 | Evidence | What it can show | What it cannot show |
 | --- | --- | --- |
 | Offline suite and CI | Protocol framing, structured controls, HTTP/WebSocket boundaries, ownership, setup helpers, diagnostics, and publication checks on the runner | That a phone streamed, that a browser decoded frames, or that Linux/macOS live setup works |
+| Chromium smoke (synthetic fixture) | Real keyboard focus, pointer events, Connect/error/handoff chrome, and native fullscreen when the runner allows it, using a labeled fake stream | Android video, actual H.264 decoding, phone discovery, or live input on a device |
 | Packet diagnostic (`node scripts/Test-DroidDock.mjs --live`) | That an authorized Windows host received session metadata and advancing media packets | That video appeared on a canvas, or that input, rotation, reconnect, or handoff worked |
 | Live browser check | That a person inspected rendered phone video and named controls on a synthetic screen | Implied success from a Connected label, packet counts, or canvas size alone |
 
@@ -35,11 +36,12 @@ Current encoder settings are a maximum dimension of 1280 pixels, up to 60 fps, a
 
 ## Automated checks
 
-The [Verify](../.github/workflows/verify.yml) workflow is the project's published automated coverage. It uses Node.js 24 on GitHub-hosted `ubuntu-latest` and `windows-latest` runners and runs `npm ci --ignore-scripts --no-fund`, `npm run verify`, `npm audit --audit-level=high`, and `npm run check:secrets`. `npm run verify` builds TypeScript, runs the offline Node test suite, checks publication rules, and checks in-repo documentation links.
+The [Verify](../.github/workflows/verify.yml) workflow is the project's published automated coverage. It uses Node.js 24 on GitHub-hosted `ubuntu-latest` and `windows-latest` runners and runs `npm ci --ignore-scripts --no-fund`, `npm run verify`, `npm audit --audit-level=high`, and `npm run check:secrets`. `npm run verify` builds TypeScript, runs the offline Node test suite, checks publication rules, and checks in-repo documentation links. A separate `browser-smoke` job on `ubuntu-latest` installs pinned Playwright Chromium and runs `npm run test:smoke` against a local synthetic fixture. That job is not part of `npm run verify`, does not use a phone or ADB, and is not live browser-video evidence.
 
 | Workflow | Runners | What ran | Android | Browser video or input |
 | --- | --- | --- | --- | --- |
 | Verify | `ubuntu-latest`, `windows-latest` | Offline verify, high-severity audit, secret scan | Not run | Not run |
+| Verify `browser-smoke` | `ubuntu-latest` | Playwright Chromium against a labeled synthetic fixture | Not run | Synthetic UI only; not Android or H.264 |
 | Package release candidate | `ubuntu-latest` | Same offline verify path, then source packaging | Not run | Not run |
 | CodeQL | `ubuntu-latest` | Static analysis of JavaScript/TypeScript | Not run | Not run |
 

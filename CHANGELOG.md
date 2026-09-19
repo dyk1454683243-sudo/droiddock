@@ -4,6 +4,7 @@ Changes are recorded here when they affect users or contributors. This document 
 
 ## Unreleased
 
+- Optional Chromium smoke suite against a local synthetic fixture (no phone, ADB, or user content). Playwright stays a development dependency; `npm test` and `npm run verify` remain the fast Node suite. Generated fixture frames are labeled and are not Android or H.264 evidence.
 - In-app Help panel on the side rail documenting current keyboard, pointer, paste, and fallback-text behavior, including focus requirements, Escape/Back, and byte limits. Help is static, usable while disconnected, restores focus to its trigger, and does not send phone input.
 - Manual, masked phone PIN entry using standard Android digit key events, with separate Backspace and Enter controls, no automatic submission or retry, and clearing on send, panel closure, focus loss and session loss. Protected-screen visibility and remote biometric authentication remain unsupported.
 

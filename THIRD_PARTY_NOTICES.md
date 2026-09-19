@@ -16,6 +16,7 @@ made that Hooware authored scrcpy or its dependencies.
 | ws | Local WebSocket transport | MIT |
 | TypeScript | Development compiler | Apache-2.0 |
 | @types/node, @types/ws, undici-types | Development type definitions | MIT |
+| Playwright | Optional Chromium smoke tests only; not shipped in the runtime | Apache-2.0 |
 
 The exact npm versions, registry URLs, and integrity hashes are in
 `package-lock.json`. npm installs retain the dependencies' license files.

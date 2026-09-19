@@ -4,6 +4,7 @@ Changes are recorded here when they affect users or contributors. This document 
 
 ## Unreleased
 
+- Local `videoQuality` presets (`default` and `saver`) for scrcpy encoder settings. Missing configuration keeps 1280 / 60 / 6 Mbps; `saver` uses 800 / 30 / 2 Mbps. Invalid names or types fail before device commands. The effective integers are part of the service-compatibility fingerprint, so an older running service must be restarted after this change. These are configured encoder caps, not measured quality or bandwidth gains.
 - In-app Help panel on the side rail documenting current keyboard, pointer, paste, and fallback-text behavior, including focus requirements, Escape/Back, and byte limits. Help is static, usable while disconnected, restores focus to its trigger, and does not send phone input.
 - Manual, masked phone PIN entry using standard Android digit key events, with separate Backspace and Enter controls, no automatic submission or retry, and clearing on send, panel closure, focus loss and session loss. Protected-screen visibility and remote biometric authentication remain unsupported.
 

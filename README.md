@@ -47,7 +47,7 @@ Set this up — https://github.com/hooware-ai/droiddock
 - Click **Connect** in another DroidDock tab to move control there. The previous tab shows **Phone opened elsewhere** and becomes inactive. Handoff briefly reconnects the stream.
 - Disconnect or close the controlling tab to release the phone session. The local service remains available for reopening.
 
-Rotation resets the decoder for the new video dimensions. After a Wi-Fi interruption, restore connectivity and reconnect. Current stream settings are a maximum dimension of 1280 pixels, up to 60 fps, and 6 Mbps H.264; these are encoder settings, not performance guarantees.
+Rotation resets the decoder for the new video dimensions. After a Wi-Fi interruption, restore connectivity and reconnect. Video uses a named local preset. The default is a maximum dimension of 1280 pixels, up to 60 fps, and 6 Mbps H.264. `saver` uses 800 pixels, 30 fps, and 2 Mbps. These are encoder settings, not measured quality or bandwidth guarantees. Changing the preset requires restarting this installation's service.
 
 Audio, recording, file transfer, multitouch, and automatic clipboard synchronization are **not implemented**. See the [roadmap](docs/ROADMAP.md) for proposed work.
 

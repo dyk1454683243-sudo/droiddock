@@ -6,10 +6,33 @@ import { createServer } from 'node:net';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
+import { configurationFingerprint, resolveVideoQualityFromSources } from './video-quality.mjs';
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const installationId = createHash('sha256').update(root.toLowerCase()).digest('hex').slice(0, 16);
 const configPath = join(root, 'config.local.json');
+
+export function nextLocalConfig(local, { adb, deviceSerial, deviceName, port }) {
+  return {
+    ...local,
+    adb,
+    deviceSerial,
+    deviceName: local.deviceSerial === deviceSerial && local.deviceName ? local.deviceName : deviceName,
+    port,
+  };
+}
+
+export function resolveSetupSettings(local, env = process.env, options = {}) {
+  if (!local || typeof local !== 'object' || Array.isArray(local)) throw new Error('config.local.json must be an object.');
+  const video = resolveVideoQualityFromSources(env, local);
+  const adb = options.adb ?? env.DROIDDOCK_ADB ?? local.adb ?? 'adb';
+  let requested = options['device-serial'] ?? env.DROIDDOCK_DEVICE_SERIAL ?? local.deviceSerial;
+  if (requested === 'YOUR_DEVICE_SERIAL') requested = undefined;
+  if (requested && !/^[A-Za-z0-9]+$/.test(requested)) throw new Error('Invalid configured permanent device serial.');
+  const preferred = Number(options.port ?? env.DROIDDOCK_PORT ?? local.port ?? 3210);
+  if (!Number.isInteger(preferred) || preferred < 1024 || preferred > 65535) throw new Error('Invalid configured port.');
+  return { adb, requested, preferred, video };
+}
 
 export function parseArgs(args) {
   const options = {};
@@ -82,28 +105,33 @@ async function discover(adb, requested) {
   return { devices, unauthorized: /\sunauthorized(?:\s|$)/m.test(listing) };
 }
 
-export async function setup(options) {
-  if (process.platform !== 'win32') throw new Error('Automated setup currently supports Windows only. See docs/SETUP.md.');
-  if (Number(process.versions.node.split('.')[0]) < 24) throw new Error('Node.js 24 or newer is required. Run scripts/Install-DroidDock.ps1.');
+export async function setup(options, deps = {}) {
+  const env = deps.env ?? process.env;
+  const runCommand = deps.run ?? run;
+  const readConfig = deps.readFile ?? (path => readFile(path, 'utf8'));
   let local = {};
-  try { local = JSON.parse((await readFile(configPath, 'utf8')).replace(/^\uFEFF/, '')); }
+  try { local = JSON.parse((await readConfig(configPath)).replace(/^\uFEFF/, '')); }
   catch (error) { if (error.code !== 'ENOENT') throw new Error('Invalid config.local.json. Repair it without discarding existing settings.'); }
-  if (!local || typeof local !== 'object' || Array.isArray(local)) throw new Error('config.local.json must be an object.');
-  const adb = options.adb ?? process.env.DROIDDOCK_ADB ?? local.adb ?? 'adb';
-  let requested = options['device-serial'] ?? process.env.DROIDDOCK_DEVICE_SERIAL ?? local.deviceSerial;
-  if (requested === 'YOUR_DEVICE_SERIAL') requested = undefined;
-  if (requested && !/^[A-Za-z0-9]+$/.test(requested)) throw new Error('Invalid configured permanent device serial.');
-  const preferred = Number(options.port ?? process.env.DROIDDOCK_PORT ?? local.port ?? 3210);
-  if (!Number.isInteger(preferred) || preferred < 1024 || preferred > 65535) throw new Error('Invalid configured port.');
-  run(adb, ['version']);
-  run('pwsh', ['-NoProfile', '-Command', 'if ($PSVersionTable.PSVersion.Major -lt 7) { exit 1 }']);
+  const { adb, requested, preferred, video } = resolveSetupSettings(local, env, options);
+  if ((deps.platform ?? process.platform) !== 'win32') throw new Error('Automated setup currently supports Windows only. See docs/SETUP.md.');
+  if (Number(process.versions.node.split('.')[0]) < 24) throw new Error('Node.js 24 or newer is required. Run scripts/Install-DroidDock.ps1.');
+  runCommand(adb, ['version']);
+  runCommand('pwsh', ['-NoProfile', '-Command', 'if ($PSVersionTable.PSVersion.Major -lt 7) { exit 1 }']);
   const manifest = JSON.parse(await readFile(join(root, 'droiddock/vendor/scrcpy-4.1/upstream.json'), 'utf8'));
   const vendor = await readFile(join(root, 'droiddock/vendor/scrcpy-4.1/scrcpy-server'));
   if (createHash('sha256').update(vendor).digest('hex') !== manifest.sha256) throw new Error('Pinned scrcpy server checksum mismatch. Restore it from the repository.');
-  const port = await selectPort(preferred, options.port !== undefined || process.env.DROIDDOCK_PORT !== undefined);
+  const port = await selectPort(preferred, options.port !== undefined || env.DROIDDOCK_PORT !== undefined);
   const service = await inspectPort(port);
   if (service.kind === 'ours' && service.status.state !== 'idle') {
-    const wantedId = createHash('sha256').update(JSON.stringify([requested ?? '', adb, process.env.DROIDDOCK_DEVICE_NAME ?? local.deviceName ?? 'Android phone', port])).digest('hex').slice(0, 16);
+    const wantedId = configurationFingerprint({
+      deviceSerial: requested ?? '',
+      adb,
+      deviceName: env.DROIDDOCK_DEVICE_NAME ?? local.deviceName ?? 'Android phone',
+      port,
+      maxSize: video.maxSize,
+      maxFps: video.maxFps,
+      videoBitRate: video.videoBitRate,
+    });
     if (service.status.state === 'connected' && service.status.configurationId === wantedId) return { status: 'ready', stage: 'already_running', url: `http://127.0.0.1:${port}/`, next: 'Verify existing visible phone video and run diagnostics. The active session and files were left unchanged.' };
     return { status: 'needs_action', stage: 'active_session', message: 'This installation has an active or unsettled session. Finish it before updating; the existing service was left untouched.', url: `http://127.0.0.1:${port}` };
   }
@@ -122,7 +150,7 @@ export async function setup(options) {
   run(process.execPath, [npmCli, 'run', 'build'], 120000, 'TypeScript build');
   run(process.execPath, [npmCli, 'test'], 120000, 'Offline tests');
   // A fresh Windows ADB daemon must not inherit captured ancestor output pipes.
-  run('pwsh', ['-NoProfile', '-File', join(root, 'scripts/Start-DroidDockAdb.ps1'), '-AdbPath', adb], 20000);
+  runCommand('pwsh', ['-NoProfile', '-File', join(root, 'scripts/Start-DroidDockAdb.ps1'), '-AdbPath', adb], 20000);
   const discovery = await discover(adb, requested);
   const selected = chooseDevice(discovery.devices, requested);
   if (!selected) {
@@ -130,7 +158,7 @@ export async function setup(options) {
     return { status: 'needs_action', stage: requested ? 'configured_phone_unreachable' : candidates.length > 1 ? 'choose_phone' : 'authorize_phone', candidates,
       message: requested ? 'The configured phone is unavailable. Reconnect or authorize it; rerun with -DeviceSerial only to explicitly change devices.' : candidates.length > 1 ? 'Ask which phone to use, then rerun with -DeviceSerial from the candidates.' : discovery.unauthorized ? 'Unlock the phone and approve USB debugging, then rerun.' : 'Connect your phone by USB and enable/approve USB debugging, or complete wireless pairing using docs/SETUP.md; then rerun.' };
   }
-  const next = { ...local, adb, deviceSerial: selected.serial, deviceName: local.deviceSerial === selected.serial && local.deviceName ? local.deviceName : selected.name, port };
+  const next = nextLocalConfig(local, { adb, deviceSerial: selected.serial, deviceName: selected.name, port });
   await mkdir(join(root, '.setup'), { recursive: true });
   await writeFile(join(root, '.setup/config.tmp'), `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 });
   await rename(join(root, '.setup/config.tmp'), configPath);
@@ -139,7 +167,7 @@ export async function setup(options) {
     process.env.DROIDDOCK_ADB = adb;
     process.env.DROIDDOCK_DEVICE_SERIAL = selected.serial;
     process.env.DROIDDOCK_PORT = String(port);
-    run(process.execPath, [join(root, 'scripts/launch.mjs')], 15000);
+    runCommand(process.execPath, [join(root, 'scripts/launch.mjs')], 15000);
     if ((await inspectPort(port)).kind !== 'ours') throw new Error('DroidDock launcher did not start this installation. Check local logs.');
   }
   return { status: 'ready', stage: options.noLaunch ? 'configured' : 'http_ready', url: `http://127.0.0.1:${port}/`, installationId,

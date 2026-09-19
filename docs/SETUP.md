@@ -58,7 +58,7 @@ The pairing port and connection port differ and can change. Neither is the devic
 
 ## Configuration and launch
 
-`config.local.json` is ignored by Git; [config.example.json](../config.example.json) shows its shape. It contains `deviceSerial`, optional `deviceName`, `adb`, and `port`. Use a generic device name if diagnostic output might be shared.
+`config.local.json` is ignored by Git; [config.example.json](../config.example.json) shows its shape. It contains `deviceSerial`, optional `deviceName`, `adb`, `port`, and optional `videoQuality`. Use a generic device name if diagnostic output might be shared.
 
 | Environment override | Meaning |
 | --- | --- |
@@ -66,8 +66,23 @@ The pairing port and connection port differ and can change. Neither is the devic
 | `DROIDDOCK_DEVICE_NAME` | Display name, default `Android phone`. |
 | `DROIDDOCK_ADB` | ADB executable, default `adb` from PATH. |
 | `DROIDDOCK_PORT` | Local HTTP port, default 3210. |
+| `DROIDDOCK_VIDEO_QUALITY` | Named video preset: `default` or `saver`. |
 
-Environment variables override saved configuration. A running process does not automatically reload changed settings; disconnect, stop that installation's service, and relaunch after a change.
+`videoQuality` selects only those named presets. Omitting it, or setting `default`, keeps the current encoder arguments: `max_size=1280`, `max_fps=60`, and `video_bit_rate=6000000`. `saver` uses `800`, `30`, and `2000000` for slower local or wireless links. That is a lower resolution and frame-rate cap, not a measured bandwidth or quality win. There is no free-form bitrate field and no browser settings API.
+
+Example:
+
+```json
+{
+  "deviceSerial": "<device-serial>",
+  "deviceName": "Android phone",
+  "adb": "adb",
+  "port": 3210,
+  "videoQuality": "saver"
+}
+```
+
+Setup preserves an existing `videoQuality` field and does not write an environment-only override into the file. Environment variables override saved configuration. A running process does not automatically reload changed settings; disconnect, stop that installation's service, and relaunch after a change. This upgrade also includes the effective video integers in the service-compatibility fingerprint, so an older running service must be restarted the same way. Helpers will not treat a leftover four-field fingerprint as compatible and will not stop an unrelated listener.
 
 ```powershell
 pwsh -NoProfile -File scripts/Start-DroidDock.ps1 -OpenBrowser
@@ -110,7 +125,7 @@ The diagnostic returns JSON with overall `ok` and individual checks: exit 0 for 
 | Saved phone unreachable | Reconnect it; do not substitute another device. |
 | Invalid config | Repair invalid fields while preserving other settings. Do not blindly copy the example over it. |
 | Occupied port | Choose a verified free port with `-Port`; use the returned URL. |
-| Existing service uses different settings | Disconnect, close its controlling tab, stop only the verified installation, then relaunch. |
+| Existing service uses different settings | Disconnect, close its controlling tab, stop only the verified installation, then relaunch. An older service from before video-quality fingerprints is incompatible and needs the same restart; do not stop an unrelated listener. |
 | Connected label but blank video | Check WebCodecs support, browser errors, and connectivity; reconnect and inspect rendered frames. |
 | Phone open in another tab | Use that view, or deliberately click Connect in the requested new view to transfer control. |
 | Wi-Fi interruption | Restore connectivity and click Connect again; discover current endpoints. |

@@ -19,11 +19,14 @@ async function fixture(t) {
 test('configuration follows server environment precedence and never reports identity values', async t => {
   const folder = await fixture(t);
   await writeFile(join(folder, 'config.local.json'), '\uFEFF' + JSON.stringify({ deviceSerial: 'LOCAL123', adb: 'local-adb', port: 3201 }));
-  const loaded = await loadConfig(folder, { DROIDDOCK_DEVICE_SERIAL: 'ENV456', DROIDDOCK_ADB: 'env-adb', DROIDDOCK_PORT: '3202' });
+  const loaded = await loadConfig(folder, { DROIDDOCK_DEVICE_SERIAL: 'ENV456', DROIDDOCK_ADB: 'env-adb', DROIDDOCK_PORT: '3202', DROIDDOCK_VIDEO_QUALITY: 'saver' });
   assert.equal(loaded.config.deviceSerial, 'ENV456');
   assert.equal(loaded.config.adb, 'env-adb');
   assert.equal(loaded.config.port, 3202);
+  assert.equal(loaded.config.videoQuality, 'saver');
+  assert.equal(loaded.config.video.maxSize, 800);
   assert.equal(loaded.details.sources.deviceSerial, 'environment');
+  assert.equal(loaded.details.sources.videoQuality, 'environment');
   assert.doesNotMatch(JSON.stringify(loaded.details), /LOCAL123|ENV456|env-adb/);
   await assert.rejects(loadConfig(folder, { DROIDDOCK_DEVICE_SERIAL: '' }), /permanent/);
   await assert.rejects(loadConfig(folder, { DROIDDOCK_PORT: 'NaN' }), /1024/);
@@ -66,7 +69,7 @@ async function statusServer(t, installation, moving = true, correctConfiguration
   const server = createServer((req, res) => {
     if (req.method !== 'GET') writes++;
     res.setHeader('Content-Type', 'application/json');
-    const configurationId = createHash('sha256').update(JSON.stringify([null, null, null, server.address().port])).digest('hex').slice(0, 16);
+    const configurationId = createHash('sha256').update(JSON.stringify([null, null, null, server.address().port, 1280, 60, 6000000])).digest('hex').slice(0, 16);
     res.end(JSON.stringify({ app: 'DroidDock', state: 'connected', packets: moving ? ++reads : 1, installationId: installation, configurationId: correctConfiguration ? configurationId : 'different' }));
   });
   server.on('upgrade', (_req, socket) => { upgrades++; socket.destroy(); });

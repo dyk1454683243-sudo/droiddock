@@ -24,7 +24,7 @@ These are scoped ideas suitable for a first contribution; check for an existing 
 
 ## Exploratory work
 
-Cross-platform live support would require platform-specific discovery, launch, cleanup, and real-device validation. Linux offline CI alone is insufficient. A packaged installer and configurable video settings may be useful once the current setup and compatibility behavior are well characterized.
+Cross-platform live support would require platform-specific discovery, launch, cleanup, and real-device validation. Linux offline CI alone is insufficient. A packaged installer may be useful once the current setup and compatibility behavior are well characterized. Local named video-quality presets (`default` and `saver`) are implemented; arbitrary scrcpy arguments and a browser settings API remain out of scope.
 
 Audio, recording, file transfer, multitouch, and automatic clipboard synchronization are not implemented or scheduled. Each would need its own design and privacy review. Public/network hosting is outside the current local-only design.
 

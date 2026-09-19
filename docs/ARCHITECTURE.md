@@ -29,7 +29,9 @@ The phone encodes H.264. ADB forwards the session's random scrcpy socket to a dy
 | `src/droiddock/protocol.ts` | Version/hash constants, incremental video framing, control validation and serialization. |
 | `src/droiddock/session.ts` | Verified phone discovery, pinned server launch, ADB forward, video/control sockets, resource cleanup, and a fixed sanitized startup-progress vocabulary. |
 | `src/droiddock/server.ts` | Loopback HTTP assets, request validation, WebSocket ownership, session lifecycle, current-session progress, status. |
-| `src/droiddock/config.ts` | Local config and environment overrides. |
+| `src/droiddock/config.ts` | Local config, environment overrides, and the resolved video-quality preset. |
+| `src/droiddock/video-quality.ts` | Named preset table, validation, scrcpy video arguments, and configuration fingerprints. |
+| `scripts/video-quality.mjs` | The same preset and fingerprint helpers for unbuilt setup and diagnostic scripts. |
 | `src/process.ts` | Bounded subprocess execution. |
 | `droiddock/public/` | Browser UI, WebCodecs decoding, input events, styles. |
 | `droiddock/vendor/scrcpy-4.1/` | Unmodified server, upstream license, and provenance/checksum manifest. |
@@ -46,7 +48,7 @@ Only one browser WebSocket controls a service's phone session. An explicit Conne
 
 Each session gets its own random socket identifier, temporary device-server file, and ADB forward. Cleanup must remain scoped to those resources and finish before a replacement phone session starts. Sanitized startup-progress messages are applied only while that session is still current and the service is still connecting; they do not change the connected or rendered success criteria. Shared ADB and unrelated scrcpy processes are not reset. Closing a controlling browser releases the phone session; the HTTP service stays available. Graceful service shutdown closes its client and cleans up its session.
 
-Installation and configuration identifiers let helpers distinguish a service for this checkout/settings from an unrelated listener or different checkout. They are matching aids, not secrets or authorization tokens. Configuration changes require service restart.
+Installation and configuration identifiers let helpers distinguish a service for this checkout/settings from an unrelated listener or different checkout. The configuration fingerprint includes the effective video-preset integers, so a leftover older service is not reused. They are matching aids, not secrets or authorization tokens. Configuration changes require service restart.
 
 ## Browser and request boundaries
 
